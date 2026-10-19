@@ -8,19 +8,20 @@
   // ---------- estado ----------
   var AWG = { 14: 1.628, 15: 1.450, 16: 1.291, 17: 1.150, 18: 1.024, 19: 0.912, 20: 0.812, 21: 0.723, 22: 0.644 };
   var P = Object.assign({}, S.DEFAULTS, { nWires: 3, awg: 17, ins: 'REF' });
-  // Tipos de aislamiento de la planta. Espesor por lado y temperatura de retiro: SUPUESTOS editables (confirmar con la ficha del alambre).
+  // Tipos de aislamiento. Química, clase térmica y normas: de la especificación de alambre.
+  // Espesor por lado: típico NEMA MW-1000 para 17 AWG (sencillo ≈ 21 µm, doble ≈ 41 µm). Temperatura de retiro: estimada por la química.
   var INSUL = {
-    REF: { n: 'Referencia del modelo', um: 30, T: 480, note: 'Doble capa (~30 µm por lado), retiro ~480 °C. Es con lo que está calibrado el modelo.' },
-    HNP: { n: 'HNP', um: 30, T: 420, note: 'Supuesto: H = doble capa; NP = capa de nylon sobre poliuretano (soldable). Retiro más bajo.' },
-    SNP: { n: 'SNP', um: 18, T: 420, note: 'Supuesto: S = capa sencilla; NP = nylon sobre poliuretano (soldable).' },
-    HAIP: { n: 'HAIP', um: 30, T: 480, note: 'Supuesto: H = doble capa; AIP = poliéster(imida) con capa de amida-imida (clase 200).' },
-    SAIP: { n: 'SAIP', um: 18, T: 480, note: 'Supuesto: S = capa sencilla; AIP = poliéster(imida) con amida-imida.' },
-    BSAIP: { n: 'BSAIP', um: 26, T: 480, note: 'Supuesto: B = capa adherente (bondable) sobre SAIP; la capa adherente suma espesor.' },
-    SP: { n: 'SP', um: 18, T: 460, note: 'Supuesto: capa sencilla de poliéster. Confirmar química.' },
-    'SP-ST': { n: 'SP-ST', um: 18, T: 460, note: 'Supuesto: variante de SP. Confirmar qué significa "ST".' },
-    HPPI: { n: 'HPPI', um: 30, T: 540, note: 'Supuesto: H = doble capa; PPI con poliimida (clase 220+), retiro más alto.' }
+    REF: { n: 'Referencia del modelo', um: 30, T: 480, note: 'Referencia de calibración: ~30 µm por lado, retiro ~480 °C.' },
+    HNP: { n: 'HNP · Heavy Nylon Polyurethane', um: 41, T: 400, note: 'Doble película: poliuretano + capa de poliamida (nylon). Clase 155 °C. NEMA MW-80C · IEC 60317-21. Poliuretano soldable: se retira a menor temperatura.' },
+    SNP: { n: 'SNP · Single Nylon Polyurethane', um: 21, T: 400, note: 'Sencillo: poliuretano + poliamida (nylon). Clase 155 °C. NEMA MW-80C · IEC 60317-21.' },
+    SP: { n: 'SP · Single Polyurethane', um: 21, T: 390, note: 'Sencillo de poliuretano. Clase 155 °C. NEMA MW-79C · IEC 60317-20. El más fácil de retirar.' },
+    'SP-ST': { n: 'SP-ST · Solderable Single Polyurethane', um: 21, T: 430, note: 'Sencillo de poliuretano soldable de clase 180 °C. NEMA MW-82. Pide más temperatura que el SP de clase 155.' },
+    HAIP: { n: 'HAIP · Heavy Amide Imide Polyester', um: 41, T: 480, note: 'Doble película: poliéster(amida)(imida) + capa de poliamida-imida. Clase 200 °C. NEMA MW-35C, MW-73C · IEC 60317-13. No soldable.' },
+    SAIP: { n: 'SAIP · Single Amide Imide Polyester', um: 21, T: 480, note: 'Sencillo: poliéster(amida)(imida) + poliamida-imida. Clase 200 °C. NEMA MW-35C, MW-74C · IEC 60317-13.' },
+    BSAIP: { n: 'BSAIP · Bondable Single AIP', um: 33, T: 470, note: 'Sencillo de poliéster(amida)(imida) + capa autoadherente (bondable). Clase 180 °C. NEMA MW-102 · IEC 60317-38. La capa adherente suma espesor pero se retira fácil.' },
+    HPPI: { n: 'HPPI · High Performance Polyamide-imide', um: 41, T: 530, note: 'Poliamida-imida. Clase 220 °C. NEMA MW-81 · IEC 60317-26. El más difícil de retirar. Espesor supuesto de doble capa: confirmar.' }
   };
-  var INS_KEY = 'electrodo-insul-v1', insOver = {};
+  var INS_KEY = 'electrodo-insul-v2', insOver = {};
   try { insOver = JSON.parse(localStorage.getItem(INS_KEY) || '{}') || {}; } catch (e) { insOver = {}; }
   function insOf(code) { return Object.assign({}, INSUL[code] || INSUL.REF, insOver[code] || {}); }
   function saveIns() { try { localStorage.setItem(INS_KEY, JSON.stringify(insOver)); } catch (e) {} }
@@ -187,7 +188,7 @@
     });
     if (pulseEd) pulseEd.render();
     calibBox(); groupSummaries();
-    var nb = $('insNote'); if (nb) { var d = insOf(P.ins), ed = insOver[P.ins]; nb.innerHTML = d.note + (ed ? ' <b>Valores editados por ti.</b> <a href="#" id="insReset">restablecer</a>' : ''); var rs = $('insReset'); if (rs) rs.onclick = function (e) { e.preventDefault(); delete insOver[P.ins]; saveIns(); var d0 = insOf(P.ins); P.enamelUm = d0.um; P.Tburn = d0.T; sync(); }; }
+    var nb = $('insNote'); if (nb) { var d = insOf(P.ins), ed = insOver[P.ins]; nb.innerHTML = d.note + (P.ins !== 'REF' ? ' <br><b>Experimental:</b> el modelo no ordena bien los aislamientos (los poliuretanos salen más débiles a igual corriente, al revés de la práctica). Úsalo para ver sensibilidad, no para comparar tipos.' : '') + (ed ? ' <b>Valores editados por ti.</b> <a href="#" id="insReset">restablecer</a>' : ''); var rs = $('insReset'); if (rs) rs.onclick = function (e) { e.preventDefault(); delete insOver[P.ins]; saveIns(); var d0 = insOf(P.ins); P.enamelUm = d0.um; P.Tburn = d0.T; sync(); }; }
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
   function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60 && P.elecType === 'flat' && P.elecD === 6 && P.bossH === 1.5 && P.elecLen === 15; }
