@@ -416,7 +416,7 @@
       metric('Alambres unidos', Math.round(s.bondW * 100) + '%', diff(s.bondW * 100, r && r.bondW * 100, 0, ' pts'), s.bondW) +
       metric('Alambre más débil', Math.round(s.bondMin * 100) + '%', r ? diff(s.bondMin * 100, r.bondMin * 100, 0, ' pts') : (s.reaches === false ? 'gancho abierto' : 'punta del gancho ' + Math.round(s.bondC * 100) + '% unida'), s.bondMin) +
       metric('Cobre fundido', s.melt.toFixed(2) + ' mm²', s.melt > 1 ? 'quemada' : s.melt > 0.3 ? 'superficial' : 'sin fusión', null, s.melt > 1 ? 'bad' : s.melt > 0.3 ? 'warn' : null) +
-      metric('Pico punta electrodo', s.peaks.Te.toFixed(0) + ' °C', r ? diff(s.peaks.Te, r.peaks.Te, 0, ' °C') : elecZone(s.peaks.Te).t, null, elecZone(s.peaks.Te).c) +
+      metric('Pico punta electrodo', s.peaks.Te.toFixed(0) + ' °C', (r ? diff(s.peaks.Te, r.peaks.Te, 0, ' °C') + ' · ' : elecZone(s.peaks.Te).t + ' · ') + cur.series.filter(function (o) { return o.Te > 1000; }).length + ' ms arriba de 1000 °C', null, elecZone(s.peaks.Te).c) +
       metric('Pico en el cobre', (s.peaks.Tcu || s.peaks.Tt).toFixed(0) + ' °C', r ? diff(s.peaks.Tcu || 0, r.peaks.Tcu || 0, 0, ' °C') : 'alambre central ' + s.peaks.Tw.toFixed(0) + ' °C', null, (s.peaks.Tcu || 0) >= 1080 ? 'bad' : null) +
       metric('Energía eléctrica', s.Eel.toFixed(0) + ' J', s.perPulse.map(function (x, i) { return x.E > 0 ? 'WE' + (i + 1) + ' ' + x.E.toFixed(0) : ''; }).filter(Boolean).join(' · ')) +
       metric('Tiempo con corriente', tEnd.toFixed(0) + ' ms', 'calor en el cobre ' + s.Ejoint.toFixed(0) + ' J (' + (s.Ejoint / s.Eel * 100).toFixed(1) + '%) · PULSE máx ' + maxPulse.toFixed(0) + '%');
@@ -430,14 +430,14 @@
     var s = r.summary, cp = r.params;
     hist.unshift({ id: Date.now(), t: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
       desc: cp.nWires + '×' + cp.awg + ' AWG' + (cp.ins && cp.ins !== 'REF' ? ' ' + cp.ins : '') + (cp.elecType === 'step' ? ' · escalonado' : '') + (cp.wear > 0 ? ' · cav ' + cp.wear.toFixed(2) : '') + (cp.elecX ? ' · pos ' + cp.elecX.toFixed(2) : '') + ' · ' + PU.describe(cp),
-      v: r.verdict.code, cls: r.verdict.cls, E: Math.round(s.Eel), I2t: +S.energyOf(cp).total.toFixed(2), Tcu: Math.round(s.peaks.Tcu || 0), Te: Math.round(s.peaks.Te), bm: Math.round((s.bondMin || 0) * 100), m: +s.melt.toFixed(2), tEnd: Math.round(s.tWeldEnd),
+      v: r.verdict.code, cls: r.verdict.cls, E: Math.round(s.Eel), t1000: r.series.filter(function (o) { return o.Te > 1000; }).length, I2t: +S.energyOf(cp).total.toFixed(2), Tcu: Math.round(s.peaks.Tcu || 0), Te: Math.round(s.peaks.Te), bm: Math.round((s.bondMin || 0) * 100), m: +s.melt.toFixed(2), tEnd: Math.round(s.tWeldEnd),
       p: (function () { var o = {}; Object.keys(P).forEach(function (k) { o[k] = P[k]; }); return o; })(), g: PU.clone(PROG) });
     hist = hist.slice(0, 40); saveHist(); renderHist();
   }
   function renderHist() {
     var box = $('histBox'); if (!box) return;
     if (!hist.length) { box.innerHTML = '<p class="muted">Aún no hay corridas.</p>'; return; }
-    box.innerHTML = '<table class="hist"><thead><tr><th>Hora</th><th>Caso</th><th>Resultado</th><th>Energía</th><th>I²t</th><th>Pico cobre</th><th>Pico punta</th><th>Alambre más débil</th><th>Fundido</th><th>Corriente</th></tr></thead><tbody>' +
+    box.innerHTML = '<table class="hist"><thead><tr><th>Hora</th><th>Caso</th><th>Resultado</th><th>Energía</th><th>I²t</th><th>Pico cobre</th><th>Pico punta</th><th title="Milisegundos con la punta del electrodo arriba de 1000 °C: indicador de desgaste">Punta &gt;1000 °C</th><th>Alambre más débil</th><th>Fundido</th><th>Corriente</th></tr></thead><tbody>' +
       hist.map(function (h, i) {
         var z = elecZone(h.Te);
         return '<tr data-h="' + i + '" title="Clic para volver a cargar este caso"><td>' + h.t + '</td><td class="hdesc">' + h.desc + '</td><td><span class="tag ' + h.cls + '">' + h.v + '</span></td><td><b>' + h.E + ' J</b></td><td>' + h.I2t + '</td><td style="color:var(--' + (h.Tcu >= 1080 ? 'bad' : 'ink') + ')">' + h.Tcu + ' °C</td><td style="color:var(--' + z.c + ')"><b>' + h.Te + ' °C</b></td><td>' + h.bm + '%</td><td>' + h.m + ' mm²</td><td>' + h.tEnd + ' ms</td></tr>';
@@ -454,7 +454,7 @@
     });
     var clr = $('histClear'); if (clr) clr.onclick = function () { hist = []; saveHist(); renderHist(); };
     var exp = $('histCsv'); if (exp) exp.onclick = function () {
-      var rows = [['hora', 'caso', 'resultado', 'energia_J', 'I2t_kA2s', 'pico_cobre_C', 'pico_punta_C', 'alambre_mas_debil_pct', 'fundido_mm2', 'corriente_ms']].concat(hist.map(function (h) { return [h.t, '"' + h.desc.replace(/"/g, '""') + '"', h.v, h.E, h.I2t, h.Tcu, h.Te, h.bm, h.m, h.tEnd]; }));
+      var rows = [['hora', 'caso', 'resultado', 'energia_J', 'I2t_kA2s', 'pico_cobre_C', 'pico_punta_C', 'punta_ms_sobre_1000C', 'alambre_mas_debil_pct', 'fundido_mm2', 'corriente_ms']].concat(hist.map(function (h) { return [h.t, '"' + h.desc.replace(/"/g, '""') + '"', h.v, h.E, h.I2t, h.Tcu, h.Te, h.t1000, h.bm, h.m, h.tEnd]; }));
       var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(function (r) { return r.join(','); }).join('\n')], { type: 'text/csv' })); a.download = 'historial-simulaciones.csv'; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 300);
     };
   }
