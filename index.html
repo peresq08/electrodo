@@ -123,6 +123,11 @@
         </div>
       </div>
       <div class="note"><b>Cómo leerlo.</b> Sondas: centro del alambre de en medio (el último en calentarse), interfaz gancho-alambre, punta del gancho apoyada en el cuerpo y punta del electrodo. El veredicto usa el <b>alambre más débil</b>: basta uno sin unir para que la terminal pueda abrir. <b>Fijar referencia</b> deja el caso actual punteado en las gráficas para comparar. En el programa, haz clic en un campo y usa ↑↓ (Shift = ×10); WELD 000 apaga ese pulso.</div>
+      <div class="card">
+        <div class="heat-top"><h3 style="margin:0">Historial de corridas</h3><div class="btns"><button class="btn ghost" type="button" id="histCsv">Exportar CSV</button><button class="btn ghost" type="button" id="histClear">Borrar</button></div></div>
+        <div class="tbl-wrap" id="histBox" style="max-height:320px;overflow:auto"></div>
+        <p class="muted" style="font-size:12px;margin:6px 0 0">Energía eléctrica entregada, I²t de la consigna, temperatura máxima alcanzada en el cobre y en la punta del electrodo (color por zona de daño). Clic en una fila para volver a cargar ese caso. Se guarda en este navegador.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -296,6 +301,22 @@
         <tr><td>Despostillado del tungsteno en secciones delgadas</td><td>Radios en las orillas</td></tr>
         <tr><td>No cubre el último alambre de la fila</td><td>Largo de cara que cubra toda la fila de alambres</td></tr>
       </tbody></table></div>
+  </div>
+
+  <h3 style="margin-top:26px">¿A partir de qué temperatura sufre el electrodo?</h3>
+  <div class="grid2">
+    <div class="tbl-wrap card"><table>
+      <thead><tr><th>Punta del electrodo</th><th>Qué le pasa al tungsteno</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag ok">&lt; 700 °C</span></td><td>Poco efecto. Se oxida lento; conserva casi toda su dureza.</td></tr>
+        <tr><td><span class="tag warn">700–900 °C</span></td><td>La oxidación al aire se acelera (capa de óxido amarillenta que se desprende en cada golpe): desgaste por pérdida de material.</td></tr>
+        <tr><td><span class="tag warn">900–1083 °C</span></td><td>Pierde buena parte de su resistencia mecánica: con la fuerza del servo, la cara se deforma y <b>toma la huella</b> del gancho. Aquí opera normalmente el fusing.</td></tr>
+        <tr><td><span class="tag bad">≥ 1083 °C en el contacto</span></td><td>El cobre en la interfaz se funde y se <b>pega</b> al electrodo; cada golpe arranca o deposita material.</td></tr>
+        <tr><td><span class="tag bad">≳ 1200 °C</span></td><td>El tungsteno puro empieza a recristalizar: se vuelve frágil y se despostilla; el óxido se volatiliza.</td></tr>
+      </tbody></table></div>
+    <div class="card"><p>Los rangos son aproximados (dependen de la aleación del electrodo, del tiempo a temperatura y del ambiente), pero dan el orden de magnitud. El simulador colorea el <b>pico de la punta</b> con estas zonas, en las métricas y en el historial.</p>
+    <p>Lo importante para la vida del electrodo: en el modelo, las soldaduras OK ya llevan la punta a ~1050–1150 °C. Por eso el desgaste por huella es inevitable y se administra (criterio de rectificado, STEPPER, cara angosta). Cada 100 °C extra por subir corriente para "compensar" acelera la deformación y el pegado de cobre: es el círculo vicioso de arriba.</p>
+    <p class="muted" style="font-size:12.5px">La temperatura que reporta el modelo es la de la capa de contacto promedio en el corte; en puntos locales (orillas de la cara, cobre pegado) puede ser mayor.</p></div>
   </div>
 
   <h3 style="margin-top:26px">Electrodo escalonado (calibres gruesos)</h3>

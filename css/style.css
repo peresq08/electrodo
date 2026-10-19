@@ -339,3 +339,8 @@ main { max-width: 1480px; }
 details.ctl-det { padding: 0; }
 .simx-charts { padding: 8px 10px; }
 .simx-charts .chart-legend { margin-top: 0; }
+table.hist { font-size: 12.5px; }
+table.hist td, table.hist th { padding: 5px 7px; white-space: nowrap; }
+table.hist td.hdesc { white-space: normal; min-width: 220px; color: var(--ink-2); }
+table.hist tbody tr { cursor: pointer; }
+table.hist tbody tr:hover { background: var(--panel-2); }

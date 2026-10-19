@@ -221,13 +221,18 @@
       if (m0 === MAT.TIPC) tipc.push(n);
       if (m0 === MAT.CU_TERM || m0 === MAT.CU_WIRE || m0 === MAT.CLOSE || m0 === MAT.TIPC) cuc.push(n);
     }
-    var nWv = p.nWires, wireOf = new Int8Array(enam.length), wCount = new Array(nWv).fill(0);
+    var nWv = p.nWires, wireOf = new Int8Array(enam.length), wCount = new Array(nWv).fill(0), coreN = new Int32Array(enam.length);
     (function () {
       var gi = G.info;
       for (var e0 = 0; e0 < enam.length; e0++) {
         var c0 = enam[e0], x0 = (c0 % NX + 0.5) * dx;
         var wi0 = Math.max(0, Math.min(nWv - 1, Math.floor((x0 - gi.xW0) / (2 * gi.ro))));
         wireOf[e0] = wi0; wCount[wi0]++;
+        // celda justo dentro de la superficie del alambre, en la misma dirección radial
+        var xc0 = gi.xW0 + gi.ro + wi0 * 2 * gi.ro, y0 = (Math.floor(c0 / NX) + 0.5) * dx, ddx = x0 - xc0, ddy = y0 - gi.yWc, rr = Math.hypot(ddx, ddy) || 1;
+        var rIn = Math.max(dx, p.wireCore * 1e-3 - 1.5 * dx);
+        var xi = xc0 + ddx / rr * rIn, yi = gi.yWc + ddy / rr * rIn;
+        coreN[e0] = Math.floor(yi / dx) * NX + Math.floor(xi / dx);
       }
     })();
     act = Int32Array.from(act); enam = Int32Array.from(enam); clos = Int32Array.from(clos); cuc = Int32Array.from(cuc);
@@ -333,7 +338,7 @@
       elec: cellAt((inf.xE0 + inf.xE1) / 2, inf.yT1 + 1.5 * dx)
     };
     var G3 = 2 / (depth * p.zLoss * 1e-3), Tw = p.Twater, T0 = p.T0, idx2 = 1 / (dx * dx);
-    var pk = { Tw: 0, Tt: 0, Tc: 0, Te: 0 }, EjEnd = 0, tBurn = null, tBondC = null, sEnd = Math.round(wf.tWeldEnd / dt);
+    var pk = { Tw: 0, Tt: 0, Tc: 0, Te: 0, Tcu: 0 }, EjEnd = 0, tBurn = null, tBondC = null, sEnd = Math.round(wf.tWeldEnd / dt);
     var perPulse = [{ E: 0, Imax: 0, Isum: 0, n: 0 }, { E: 0, Imax: 0, Isum: 0, n: 0 }, { E: 0, Imax: 0, Isum: 0, n: 0 }];
     props();
     var I1V = solvePhi(400);
@@ -375,7 +380,7 @@
       for (var b2 = 0; b2 < enam.length; b2++) {
         var c2 = enam[b2];
         if (T[c2] > TBURN && burn[c2] < 1) burn[c2] = Math.min(1, burn[c2] + dt / BURNT * Math.min(3, (T[c2] - TBURN) / 100 + 0.3));
-        if (burn[c2] >= 1 && T[c2] > TBOND && bond[c2] < 1) bond[c2] = Math.min(1, bond[c2] + dt / p.bondTime * Math.min(3, (T[c2] - TBOND) / 100 + 0.3));
+        if (burn[c2] >= 1 && bond[c2] < 1) { var Tb = Math.min(T[c2], T[coreN[b2]]); if (Tb > TBOND) bond[c2] = Math.min(1, bond[c2] + dt / p.bondTime * Math.min(3, (Tb - TBOND) / 100 + 0.3)); }
       }
       for (var b5 = 0; b5 < tipc.length; b5++) { var c5 = tipc[b5]; if (T[c5] > TBOND && bond[c5] < 1) bond[c5] = Math.min(1, bond[c5] + dt / p.bondTime * Math.min(3, (T[c5] - TBOND) / 100 + 0.3)); }
       for (var b3 = 0; b3 < clos.length; b3++) {
@@ -390,7 +395,7 @@
         for (var e1 = 0; e1 < enam.length; e1++) { bE += burn[enam[e1]]; bdE += bond[enam[e1]]; wB[wireOf[e1]] += bond[enam[e1]]; }
         var bMin = 1; for (var w1 = 0; w1 < nWv; w1++) if (wCount[w1]) bMin = Math.min(bMin, wB[w1] / wCount[w1]);
         for (var e2 = 0; e2 < clos.length; e2++) bdC += bond[clos[e2]];
-        for (var e3 = 0; e3 < cuc.length; e3++) if (melt[cuc[e3]] > 0.5) mC++;
+        for (var e3 = 0; e3 < cuc.length; e3++) { var c6 = cuc[e3]; if (melt[c6] > 0.5) mC++; if (T[c6] > pk.Tcu) pk.Tcu = T[c6]; }
         series.push({ t: t * 1e3, set: set, we: pi + 1, I: I / 1e3, V: V, pulse: Math.min(100, V / p.Vmax * 100), P: Pw / 1e3, R: Rtot * 1e3,
           Tw: T[probes.wire], Tt: T[probes.tang], Tc: T[probes.close], Te: T[probes.elec],
           burn: enam.length ? bE / enam.length : 0, bondW: enam.length ? bdE / enam.length : 0, bondC: clos.length ? bdC / clos.length : 0, bondMin: enam.length ? bMin : 0, melt: mC * dx * dx * 1e6 });

@@ -42,7 +42,6 @@
       { k: 'thick', label: '<abbr title="Espesor del material de la terminal">Espesor</abbr> (mm)', min: 0.5, max: 1.5, step: 0.05, d: 2 },
       { k: 'hookLen', label: '<abbr title="Largo desarrollado del gancho; define cuánto gancho queda libre después de los alambres">Largo de gancho</abbr> (mm)', min: 5, max: 12, step: 0.1, d: 1 },
       { k: 'ins', type: 'select', opts: Object.keys(INSUL).map(function (c) { return [c, INSUL[c].n]; }), label: 'Aislamiento del alambre' },
-      { k: 'enamelUm', label: '<abbr title="Espesor de esmalte por lado (radial). Cambia el tiempo para retirarlo y su resistencia térmica">Esmalte por lado</abbr> (µm)', min: 10, max: 60, step: 1, d: 0 },
       { k: 'Tburn', label: '<abbr title="Temperatura a la que el esmalte se descompone y se retira">T de retiro</abbr> (°C)', min: 350, max: 650, step: 5, d: 0 },
       { k: 'closeAngle', label: '<abbr title="Ángulo con el que la tira baja del último alambre hacia el cuerpo">Ángulo de bajada</abbr> (°)', min: 30, max: 85, step: 1, d: 0 }
     ] },
@@ -64,6 +63,7 @@
       { k: 'fClose', label: 'Factor contacto del cierre', min: 5, max: 60, step: 1, d: 0 },
       { k: 'zLoss', label: 'Longitud de pérdida 3D (mm)', min: 8, max: 60, step: 1, d: 0 },
       { k: 'Tbond', label: 'T de unión (°C)', min: 550, max: 950, step: 10, d: 0 },
+      { k: 'enamelUm', label: '<abbr title="Espesor efectivo del esmalte en el modelo (el anillo es de una celda); cambia el tiempo de retiro y su resistencia térmica">Espesor efectivo de esmalte</abbr> (µm)', min: 10, max: 60, step: 1, d: 0 },
       { k: 'Rref', label: 'R ref. PWR/VLT (mΩ)', min: 0.18, max: 0.4, step: 0.005, d: 3 }
     ] }
   ];
@@ -114,19 +114,19 @@
     box.querySelectorAll('input[type=range][data-k]').forEach(function (inp) {
       inp.addEventListener('input', function () {
         var k = inp.dataset.k; P[k] = parseFloat(inp.value);
-        if (k === 'enamelUm' || k === 'Tburn') { insOver[P.ins] = Object.assign({}, insOver[P.ins] || {}, k === 'enamelUm' ? { um: P[k] } : { T: P[k] }); saveIns(); }
+        if (k === 'Tburn') { insOver[P.ins] = Object.assign({}, insOver[P.ins] || {}, { T: P[k] }); saveIns(); }
         sync(); markPreset(-1); geoPreview(k);
       });
     });
     box.querySelectorAll('select[data-k]').forEach(function (sel) {
       sel.addEventListener('change', function () {
         var k = sel.dataset.k;
-        if (k === 'ins') { P.ins = sel.value; var d = insOf(P.ins); P.enamelUm = d.um; P.Tburn = d.T; }
+        if (k === 'ins') { P.ins = sel.value; P.Tburn = insOf(P.ins).T; }
         else P[k] = +sel.value;
         sync(); markPreset(-1); geoPreview(k);
       });
     });
-    box.querySelector('#in_enamelUm').closest('.row').insertAdjacentHTML('beforebegin', '<div class="note mini" id="insNote"></div>');
+    box.querySelector('#in_Tburn').closest('.row').insertAdjacentHTML('beforebegin', '<div class="note mini" id="insNote"></div>');
     box.querySelectorAll('.seg[data-k]').forEach(function (sg) {
       sg.addEventListener('click', function (e) {
         var b = e.target.closest('button'); if (!b) return;
@@ -188,7 +188,7 @@
     });
     if (pulseEd) pulseEd.render();
     calibBox(); groupSummaries();
-    var nb = $('insNote'); if (nb) { var d = insOf(P.ins), ed = insOver[P.ins]; nb.innerHTML = d.note + (P.ins !== 'REF' ? ' <br><b>Experimental:</b> el modelo no ordena bien los aislamientos (los poliuretanos salen más débiles a igual corriente, al revés de la práctica). Úsalo para ver sensibilidad, no para comparar tipos.' : '') + (ed ? ' <b>Valores editados por ti.</b> <a href="#" id="insReset">restablecer</a>' : ''); var rs = $('insReset'); if (rs) rs.onclick = function (e) { e.preventDefault(); delete insOver[P.ins]; saveIns(); var d0 = insOf(P.ins); P.enamelUm = d0.um; P.Tburn = d0.T; sync(); }; }
+    var nb = $('insNote'); if (nb) { var d = insOf(P.ins), ed = insOver[P.ins]; nb.innerHTML = d.note + ' <br>En el modelo el tipo solo cambia la <b>temperatura de retiro</b> (vaporización del esmalte).' + (ed ? ' <b>Valores editados por ti.</b> <a href="#" id="insReset">restablecer</a>' : ''); var rs = $('insReset'); if (rs) rs.onclick = function (e) { e.preventDefault(); delete insOver[P.ins]; saveIns(); P.Tburn = insOf(P.ins).T; sync(); }; }
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
   function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60 && P.elecType === 'flat' && P.elecD === 6 && P.bossH === 1.5 && P.elecLen === 15; }
@@ -252,7 +252,7 @@
       r.frames.forEach(function (f, i) { var m = 0; for (var n = 0; n < f.T.length; n++) { var mt = r.mat[n]; if ((mt === 2 || mt === 3) && f.T[n] > m) m = f.T[n]; } if (m > best) { best = m; bi = i; } });
       frameIdx = bi;
       $('scrub').max = r.frames.length - 1; $('scrub').value = frameIdx;
-      renderAll();
+      renderAll(); addHist(r);
     }).catch(function (err) { busy = false; sync(); $('runInfo').textContent = 'Error: ' + err.message; });
   }
 
@@ -380,6 +380,14 @@
     C.line($('chB'), { series: serB, xMin: 0, xMax: xMax, yMin: 0, yMax: 105, y2Min: 0, y2Max: Math.max(2, cur.summary.melt * 1.2), xLabel: 'ms', yLabel: '%', y2Label: 'mm² fundidos', cursor: tNow, bands: bands });
     C.legend($('lgB'), [{ color: '#6b7a8c', label: 'Esmalte retirado' }, { color: '#2c8fd6', label: 'Alambres unidos' }, { color: ok, label: 'Alambre más débil' }, { color: '#d4a017', label: 'Punta del gancho (unión)' }, { color: '#d0473b', label: 'Cobre fundido (mm², eje der.)' }]);
   }
+  function elecZone(t) {
+    if (t < 700) return { c: 'ok', t: 'poco efecto en el tungsteno' };
+    if (t < 900) return { c: 'warn', t: 'oxidación del tungsteno' };
+    if (t < 1083) return { c: 'warn', t: 'se ablanda: la cara toma la huella' };
+    if (t < 1200) return { c: 'bad', t: 'el cobre se funde y se pega' };
+    return { c: 'bad', t: 'recristaliza y se fragiliza' };
+  }
+  window.ElecZone = elecZone;
   function metric(label, v, d, frac, cls) {
     return '<div class="metric"><div class="l">' + label + '</div><div class="v"' + (cls ? ' style="color:var(--' + cls + ')"' : '') + '>' + v + '</div>' + (d ? '<div class="d muted">' + d + '</div>' : '') + (frac != null ? '<div class="meter"><i style="width:' + Math.round(Math.max(0, Math.min(1, frac)) * 100) + '%"></i></div>' : '') + '</div>';
   }
@@ -397,12 +405,48 @@
       metric('Alambres unidos', Math.round(s.bondW * 100) + '%', diff(s.bondW * 100, r && r.bondW * 100, 0, ' pts'), s.bondW) +
       metric('Alambre más débil', Math.round(s.bondMin * 100) + '%', r ? diff(s.bondMin * 100, r.bondMin * 100, 0, ' pts') : (s.reaches === false ? 'gancho abierto' : 'punta del gancho ' + Math.round(s.bondC * 100) + '% unida'), s.bondMin) +
       metric('Cobre fundido', s.melt.toFixed(2) + ' mm²', s.melt > 1 ? 'quemada' : s.melt > 0.3 ? 'superficial' : 'sin fusión', null, s.melt > 1 ? 'bad' : s.melt > 0.3 ? 'warn' : null) +
-      metric('Pico punta electrodo', s.peaks.Te.toFixed(0) + ' °C', diff(s.peaks.Te, r && r.peaks.Te, 0, ' °C'), null, s.peaks.Te > 1300 ? 'bad' : null) +
-      metric('Pico alambre central', s.peaks.Tw.toFixed(0) + ' °C', diff(s.peaks.Tw, r && r.peaks.Tw, 0, ' °C')) +
+      metric('Pico punta electrodo', s.peaks.Te.toFixed(0) + ' °C', r ? diff(s.peaks.Te, r.peaks.Te, 0, ' °C') : elecZone(s.peaks.Te).t, null, elecZone(s.peaks.Te).c) +
+      metric('Pico en el cobre', (s.peaks.Tcu || s.peaks.Tt).toFixed(0) + ' °C', r ? diff(s.peaks.Tcu || 0, r.peaks.Tcu || 0, 0, ' °C') : 'alambre central ' + s.peaks.Tw.toFixed(0) + ' °C', null, (s.peaks.Tcu || 0) >= 1080 ? 'bad' : null) +
       metric('Energía eléctrica', s.Eel.toFixed(0) + ' J', s.perPulse.map(function (x, i) { return x.E > 0 ? 'WE' + (i + 1) + ' ' + x.E.toFixed(0) : ''; }).filter(Boolean).join(' · ')) +
       metric('Tiempo con corriente', tEnd.toFixed(0) + ' ms', 'calor en el cobre ' + s.Ejoint.toFixed(0) + ' J (' + (s.Ejoint / s.Eel * 100).toFixed(1) + '%) · PULSE máx ' + maxPulse.toFixed(0) + '%');
   }
   function renderAll() { renderHeat(); drawCharts(); renderMetrics(); }
+  // ---------- historial de corridas ----------
+  var HKEY = 'electrodo-hist-v1', hist = [];
+  try { hist = JSON.parse(localStorage.getItem(HKEY) || '[]') || []; } catch (e) { hist = []; }
+  function saveHist() { try { localStorage.setItem(HKEY, JSON.stringify(hist.slice(0, 40))); } catch (e) {} }
+  function addHist(r) {
+    var s = r.summary, cp = r.params;
+    hist.unshift({ id: Date.now(), t: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+      desc: cp.nWires + '×' + cp.awg + ' AWG' + (cp.ins && cp.ins !== 'REF' ? ' ' + cp.ins : '') + (cp.elecType === 'step' ? ' · escalonado' : '') + (cp.wear > 0 ? ' · cav ' + cp.wear.toFixed(2) : '') + (cp.elecX ? ' · pos ' + cp.elecX.toFixed(2) : '') + ' · ' + PU.describe(cp),
+      v: r.verdict.code, cls: r.verdict.cls, E: Math.round(s.Eel), I2t: +S.energyOf(cp).total.toFixed(2), Tcu: Math.round(s.peaks.Tcu || 0), Te: Math.round(s.peaks.Te), bm: Math.round((s.bondMin || 0) * 100), m: +s.melt.toFixed(2), tEnd: Math.round(s.tWeldEnd),
+      p: (function () { var o = {}; Object.keys(P).forEach(function (k) { o[k] = P[k]; }); return o; })(), g: PU.clone(PROG) });
+    hist = hist.slice(0, 40); saveHist(); renderHist();
+  }
+  function renderHist() {
+    var box = $('histBox'); if (!box) return;
+    if (!hist.length) { box.innerHTML = '<p class="muted">Aún no hay corridas.</p>'; return; }
+    box.innerHTML = '<table class="hist"><thead><tr><th>Hora</th><th>Caso</th><th>Resultado</th><th>Energía</th><th>I²t</th><th>Pico cobre</th><th>Pico punta</th><th>Alambre más débil</th><th>Fundido</th><th>Corriente</th></tr></thead><tbody>' +
+      hist.map(function (h, i) {
+        var z = elecZone(h.Te);
+        return '<tr data-h="' + i + '" title="Clic para volver a cargar este caso"><td>' + h.t + '</td><td class="hdesc">' + h.desc + '</td><td><span class="tag ' + h.cls + '">' + h.v + '</span></td><td><b>' + h.E + ' J</b></td><td>' + h.I2t + '</td><td style="color:var(--' + (h.Tcu >= 1080 ? 'bad' : 'ink') + ')">' + h.Tcu + ' °C</td><td style="color:var(--' + z.c + ')"><b>' + h.Te + ' °C</b></td><td>' + h.bm + '%</td><td>' + h.m + ' mm²</td><td>' + h.tEnd + ' ms</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  function histSetup() {
+    renderHist();
+    var box = $('histBox'); if (!box) return;
+    box.addEventListener('click', function (e) {
+      var tr = e.target.closest('tr[data-h]'); if (!tr) return;
+      var h = hist[+tr.dataset.h]; if (!h) return;
+      Object.assign(P, h.p); setProgram(h.g); sync(); update3D(); markPreset(-1); run();
+      document.querySelector('.simx').scrollIntoView({ behavior: 'smooth' });
+    });
+    var clr = $('histClear'); if (clr) clr.onclick = function () { hist = []; saveHist(); renderHist(); };
+    var exp = $('histCsv'); if (exp) exp.onclick = function () {
+      var rows = [['hora', 'caso', 'resultado', 'energia_J', 'I2t_kA2s', 'pico_cobre_C', 'pico_punta_C', 'alambre_mas_debil_pct', 'fundido_mm2', 'corriente_ms']].concat(hist.map(function (h) { return [h.t, '"' + h.desc.replace(/"/g, '""') + '"', h.v, h.E, h.I2t, h.Tcu, h.Te, h.bm, h.m, h.tEnd]; }));
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(function (r) { return r.join(','); }).join('\n')], { type: 'text/csv' })); a.download = 'historial-simulaciones.csv'; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 300);
+    };
+  }
   function chartTabs() {
     document.querySelectorAll('.simx-charts').forEach(function (card) {
       var t = card.querySelector('.chart-tabs');
@@ -415,7 +459,7 @@
   }
 
   function init() {
-    buildControls(); applyPreset(PRESETS[2]); markPreset(2); hoverSetup(); chartTabs();
+    buildControls(); applyPreset(PRESETS[2]); markPreset(2); hoverSetup(); chartTabs(); histSetup();
     $('scrub').addEventListener('input', function () { frameIdx = +this.value; renderHeat(); drawCharts(); });
     $('layerSeg').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return; layer = b.dataset.l;
