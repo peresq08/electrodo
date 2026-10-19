@@ -2,7 +2,7 @@
  * Se guarda solo en el navegador de quien la usa (localStorage). */
 (function () {
   'use strict';
-  var KEY = 'electrodo-calib-v1', st = { on: true, f: {} };
+  var KEY = 'electrodo-calib-v2', st = { on: true, f: {} };
   try { var raw = localStorage.getItem(KEY); if (raw) st = Object.assign(st, JSON.parse(raw)); } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} window.dispatchEvent(new Event('calibchange')); }
   window.Calib = {

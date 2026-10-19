@@ -47,17 +47,26 @@ function build(p) {
   const t = P.thick, hw = P.hookW, zH = hw / 2;
   const xL = inf.xL * k, xT1 = inf.xT1 * k, xW0 = inf.xW0 * k, ro = inf.ro * k, rc = P.wireCore;
   const yB0 = 1, yB1 = inf.yB1 * k, yT0 = inf.yT0 * k, yT1 = inf.yT1 * k, yWc = inf.yWc * k;
-  const xC0 = inf.xC0 * k, xC1 = inf.xC1 * k;
   if (group) { scene.remove(group); group.traverse(o => o.geometry && o.geometry.dispose()); }
   group = new THREE.Group();
   // barra de tierra (más ancha que el gancho)
-  group.add(box(xL - 0.5, Math.max(xT1 + 0.6, xL + 6), 0, yB0, -zH - 1.5, zH + 1.5, P.gndCu ? MATS.cu : MATS.gnd));
-  // terminal: cuerpo, pared del doblez, gancho y punta de cierre
-  group.add(box(xL, xT1 + 0.4, yB0, yB1, -zH - 0.6, zH + 0.6, MATS.cu));
+  group.add(box(xL - 0.5, Math.max(inf.xT1 * k + 0.6, xL + 6), 0, yB0, -zH - 1.5, zH + 1.5, P.gndCu ? MATS.cu : MATS.gnd));
+  // terminal: cuerpo, doblez, tira sobre los alambres, tramo inclinado y punta apoyada
+  const xS = inf.xS * k, xF0 = inf.xF0 * k, xF1 = inf.xF1 * k, th = inf.theta, sl = inf.reaches ? inf.slopeLen * k : inf.free * k;
+  group.add(box(xL, Math.max(xT1, xF1) + 0.4, yB0, yB1, -zH - 0.6, zH + 0.6, MATS.cu));
   group.add(box(xL, xL + t, yB0, yT1, -zH, zH, MATS.cu));
-  group.add(box(xL, xT1, yT0, yT1, -zH, zH, MATS.cu));
-  group.add(box(xC0, xC1, yB1 + 0.06, yT0, -zH, zH, MATS.cu));
-  group.add(box(xC0, xC1, yB1, yB1 + 0.06, -zH, zH, MATS.close));
+  group.add(box(xL, xS, yT0, yT1, -zH, zH, MATS.cu));
+  if (sl > 0) {
+    const dxs = Math.cos(th), dys = -Math.sin(th), nx = Math.sin(th), ny = Math.cos(th);
+    const L = sl + t * Math.tan(th / 2) * 2;
+    const cx = xS + dxs * sl / 2 + nx * t / 2, cy = yT0 + dys * sl / 2 + ny * t / 2;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(L, t, hw), MATS.cu);
+    m.position.set(cx, cy, 0); m.rotation.z = -th; group.add(m);
+  }
+  if (inf.reaches && xF1 > xF0) {
+    group.add(box(xF0, xF1, yB1, yB1 + t, -zH, zH, MATS.cu));
+    group.add(box(xF0, xF0 + Math.max(inf.closeLen * k, 0.1), yB1 - 0.02, yB1 + 0.07, -zH - 0.01, zH + 0.01, MATS.close));
+  }
   // alambres (salen del gancho a ambos lados)
   for (let w = 0; w < P.nWires; w++) {
     const x = xW0 + ro + w * 2 * ro;
@@ -65,7 +74,7 @@ function build(p) {
     group.add(cyl(x, yWc, rc, 9.12, MATS.cuWire));
   }
   // electrodo: cara faceW (a lo largo) × faceDepth (a lo ancho); con cavidad, los flancos abrazan el gancho
-  const xEc = (xW0 + xT1) / 2 + (P.elecX || 0), hx = P.faceW / 2, fd = P.faceDepth, cav = Math.min(P.wear || 0, 0.9);
+  const xEc = (xW0 + inf.xW1 * k) / 2 + (P.elecX || 0), hx = P.faceW / 2, fd = P.faceDepth, cav = Math.min(P.wear || 0, 0.9);
   const yE = yT1, H = 3.2;
   group.add(box(xEc - hx, xEc + hx, yE, yE + H, -fd / 2, fd / 2, MATS.w));
   // vástago
@@ -115,7 +124,7 @@ window.Geo3D = {
   },
   update(p) {
     if (!renderer) init();
-    const key = JSON.stringify([p.nWires, p.wireCore, p.wireDiam, p.thick, p.hookLen, p.elecX, p.faceW, p.faceDepth, p.wear, p.gndCu]);
+    const key = JSON.stringify([p.nWires, p.wireCore, p.wireDiam, p.thick, p.hookLen, p.elecX, p.faceW, p.faceDepth, p.wear, p.gndCu, p.closeAngle]);
     if (key === lastKey) return; lastKey = key;
     build(p);
   },

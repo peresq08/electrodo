@@ -74,7 +74,7 @@
         <div class="step"><div><h3>Contacto y presión (SQD, SQZ)</h3><p>El servo baja el electrodo y cierra el gancho mecánicamente. Sin corriente. La fuerza define la resistencia de contacto inicial.</p></div></div>
         <div class="step"><div><h3>Calentamiento (UP)</h3><p>La corriente sube de UF a HEAT. El calor nace sobre todo en la punta del electrodo y en el contacto electrodo-gancho, y viaja hacia abajo por conducción.</p></div></div>
         <div class="step"><div><h3>Esmalte (≈ 450–550 °C)</h3><p>La poliamida-imida o el poliéster del esmalte se descompone y la presión lo expulsa de entre el gancho y los alambres. Mientras quede esmalte, el alambre no conduce ni se une.</p></div></div>
-        <div class="step"><div><h3>Unión (≈ 700–950 °C)</h3><p>Cobre limpio contra cobre a alta temperatura y presión: difusión y forja. El cierre del gancho contra el cuerpo también tiene que unirse para que la terminal no se abra.</p></div></div>
+        <div class="step"><div><h3>Unión (≈ 700–950 °C)</h3><p>Cobre limpio contra cobre a alta temperatura y presión: difusión y forja entre el gancho, los alambres y el cuerpo. Lo que sostiene la terminal es que <b>todos</b> los alambres queden unidos; el más alejado del electrodo es el último en lograrlo.</p></div></div>
         <div class="step"><div><h3>Enfriamiento (DOWN, HOLD)</h3><p>La rampa de bajada evita el choque térmico y el HOLD mantiene presión mientras la unión solidifica su estructura. Si el electrodo sube caliente, puede despegar el gancho.</p></div></div>
       </div>
     </div>
@@ -122,7 +122,7 @@
           </div>
         </div>
       </div>
-      <div class="note"><b>Cómo leerlo.</b> Sondas: centro del alambre de en medio (el último en calentarse), interfaz gancho-alambre, cierre del gancho contra el cuerpo y punta del electrodo. <b>Fijar referencia</b> deja el caso actual punteado en las gráficas para comparar. En el programa, haz clic en un campo y usa ↑↓ (Shift = ×10); WELD 000 apaga ese pulso.</div>
+      <div class="note"><b>Cómo leerlo.</b> Sondas: centro del alambre de en medio (el último en calentarse), interfaz gancho-alambre, punta del gancho apoyada en el cuerpo y punta del electrodo. El veredicto usa el <b>alambre más débil</b>: basta uno sin unir para que la terminal pueda abrir. <b>Fijar referencia</b> deja el caso actual punteado en las gráficas para comparar. En el programa, haz clic en un campo y usa ↑↓ (Shift = ×10); WELD 000 apaga ese pulso.</div>
     </div>
   </div>
 </section>
@@ -196,7 +196,7 @@
     <div class="chart-legend" id="mLegend"></div>
   </div>
   <div class="grid3" style="margin-top:16px">
-    <div class="card"><h3>Cuándo sí conviene</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li><b>Precalentamiento</b>: alambres gruesos o esmalte de alta temperatura, cuando el esmalte atrapado es la falla.</li><li><b>Post-calentamiento</b>: cuando el gancho rebota o el cierre no se une aunque los alambres sí.</li><li><b>Pulsación</b>: cuando la punta del electrodo se gasta rápido o se pega.</li><li><b>VLT en WE1</b>: cuando hay expulsión o chisporroteo al inicio por la R alta del esmalte.</li></ul></div>
+    <div class="card"><h3>Cuándo sí conviene</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li><b>Precalentamiento</b>: alambres gruesos o esmalte de alta temperatura, cuando el esmalte atrapado es la falla.</li><li><b>Post-calentamiento</b>: cuando el gancho rebota al soltar o el alambre más alejado del electrodo no termina de unirse.</li><li><b>Pulsación</b>: cuando la punta del electrodo se gasta rápido o se pega.</li><li><b>VLT en WE1</b>: cuando hay expulsión o chisporroteo al inicio por la R alta del esmalte.</li></ul></div>
     <div class="card"><h3>Cuándo no</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li>Pulsos de baja corriente (≈ 0.5 kA) "por si acaso": aportan menos de 2% de la energía.</li><li>Dividir un pulso que ya funciona sin una falla específica que corregir.</li><li>Comparar estrategias sin igualar energía o resultado: gana la que tiene más energía, no la mejor forma.</li></ul></div>
     <div class="card"><h3>Cómo probarlo en la máquina</h3><p style="font-size:14px;margin:0">Diseño a <b>igual energía</b> (usa el I²t del editor), un factor a la vez contra el programa actual, orden aleatorio y respuesta de jalón + corte. Para quitar pulsos que no aportan, una prueba de <b>equivalencia</b> (TOST): demuestra que el resultado no cambia más que un margen definido.</p></div>
   </div>
@@ -294,7 +294,7 @@
         <tr><td>Contacto parcial si la terminal se desalinea</td><td>Medir la variación de posición; cara al 85–90%</td></tr>
         <tr><td>Punta más caliente (más densidad de corriente)</td><td>Bajar corriente; termografía IR</td></tr>
         <tr><td>Despostillado del tungsteno en secciones delgadas</td><td>Radios en las orillas</td></tr>
-        <tr><td>No cubre bien el cierre del gancho</td><td>Largo completo sobre la zona de cierre</td></tr>
+        <tr><td>No cubre el último alambre de la fila</td><td>Largo de cara que cubra toda la fila de alambres</td></tr>
       </tbody></table></div>
   </div>
 </section>
@@ -447,13 +447,14 @@
     <div class="card"><h3>Supuestos y límites</h3>
       <ul style="margin:0;padding-left:18px">
         <li>Corte 2D: la profundidad (ancho del gancho) se toma uniforme. Los flancos que toca un electrodo gastado se representan con un factor de área en la punta.</li>
-        <li>Contactos (electrodo-gancho, cierre, esmalte quemado) como capas de una celda con resistividad multiplicada. Esos factores están ajustados, no medidos.</li>
+        <li>Contactos (electrodo-gancho, punta apoyada, esmalte quemado) como capas de una celda con resistividad multiplicada. Esos factores están ajustados, no medidos.</li>
         <li>El esmalte es aislante hasta ~480 °C y se retira progresivamente; las uniones avanzan por encima de ~700 °C. Modelo cinético simple.</li>
-        <li>No hay mecánica: el cierre del gancho y el hundimiento no se calculan, solo su efecto eléctrico/térmico.</li>
+        <li>El gancho es una tira de espesor uniforme: pasa plana sobre los alambres, baja con un ángulo (60° por defecto) dejando un hueco de aire debajo y su punta se apoya sobre el cuerpo. Se conserva el largo desarrollado: si el gancho no alcanza el cuerpo, el resultado es <b>ABIERTA</b>.</li>
+        <li>No hay mecánica: la forma es la del gancho ya cerrado al inicio de la corriente; el hundimiento y la deformación durante el pulso no se calculan.</li>
         <li>Programa de pulsos completo como el controlador: WE1/WE2/WE3, COOL1/COOL2, PULSATION/INTERVAL y CTRL por pulso.</li>
         <li>Geometría ajustable en el plano: posición del electrodo a lo largo del gancho, largo de cara, espesor de terminal, largo de gancho, calibre y 1–4 alambres. Lo que pasa a lo ancho del gancho (desalineación lateral, inclinación) necesita un modelo 3D.</li>
         <li>Calibración opcional con tus resultados: un factor de corriente efectiva por número de alambres, ajustado en el Asistente de DOE. Solo aplica a la geometría de referencia (2–3 alambres 17 AWG, terminal de 1 mm, gancho de 8.5 mm).</li>
-        <li>Calibrado para reproducir tendencias: 2 alambres OK a la corriente de referencia y quemada con +10%; 3 alambres débil a la misma energía y fría con −15%.</li>
+        <li>Calibrado para reproducir tendencias: 2 alambres OK a la corriente de referencia y quemada con +10%; 3 alambres débil con la corriente actual (esmalte retirado, pero el alambre más débil sin unir) y fría con −15%.</li>
       </ul></div>
   </div>
 </section>

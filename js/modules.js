@@ -40,7 +40,7 @@
     lbl('Electrodo W', inf.xE0 + 0.4e-3, 7.2e-3);
     lbl('Gancho (Cu)', inf.xE1 + 0.3e-3, inf.yT1 - 0.2e-3);
     lbl('Barra de tierra', 6.4e-3, 0.35e-3);
-    lbl('Cierre', inf.xC0 - 0.1e-3, inf.yB1 - 0.35e-3);
+    lbl('Punta apoyada', inf.xF0, inf.yB1 - 0.35e-3);
     var used = {}; r.mat.forEach(function (m) { used[m] = 1; });
     $('anatLegend').innerHTML = S.MAT_NAMES.map(function (n, i) { return i && used[i] ? '<span style="--c:' + window.SimUI.MATCOL[i] + '">' + n + '</span>' : ''; }).join('');
     var tip = document.createElement('div'); tip.className = 'hover-read'; cv.parentNode.style.position = 'relative'; cv.parentNode.appendChild(tip);
@@ -51,7 +51,8 @@
       3: 'Núcleo de cobre del alambre 17 AWG.',
       4: 'Esmalte: aislante eléctrico y térmico. Debe retirarse para que haya unión.',
       5: 'Barra de tierra: cierra el circuito por el cuerpo de la terminal.',
-      6: 'Zona de cierre: la punta del gancho contra el cuerpo. Si no se une, la terminal puede abrirse.',
+      6: 'Inicio del apoyo de la punta del gancho sobre el cuerpo (contacto).',
+      10: 'Resto de la punta del gancho, apoyada sobre el cuerpo.',
       7: 'Contacto electrodo-gancho: resistencia de contacto, depende de fuerza y área.',
       8: 'Contacto cuerpo-barra.'
     };
@@ -75,7 +76,7 @@
     var d = WM.data; if (!d || !d.maps[key]) return null;
     var H = d.heats, W = d.welds, M = d.maps[key];
     function idx(arr, v) { if (v <= arr[0]) return [0, 0, 0, v < arr[0]]; if (v >= arr[arr.length - 1]) return [arr.length - 1, arr.length - 1, 0, v > arr[arr.length - 1]]; for (var i = 0; i < arr.length - 1; i++) if (v <= arr[i + 1]) return [i, i + 1, (v - arr[i]) / (arr[i + 1] - arr[i]), false]; }
-    var a = idx(H, h), b = idx(W, w), out = {}, ks = ['b', 'bw', 'bc', 'm', 'te', 'tw', 'E'];
+    var a = idx(H, h), b = idx(W, w), out = {}, ks = ['b', 'bw', 'bm', 'bc', 'm', 'te', 'tw', 'E'];
     ks.forEach(function (k) {
       var v00 = M[b[0]][a[0]][k], v01 = M[b[0]][a[1]][k], v10 = M[b[1]][a[0]][k], v11 = M[b[1]][a[1]][k];
       out[k] = (v00 * (1 - a[2]) + v01 * a[2]) * (1 - b[2]) + (v10 * (1 - a[2]) + v11 * a[2]) * b[2];
@@ -83,7 +84,7 @@
     out.outside = a[3] || b[3];
     return out;
   };
-  WM.verdictAt = function (key, h, w) { var m = WM.metricsAt(key, h, w); if (!m) return null; var v = S.verdict({ melt: m.m, burn: m.b, bondW: m.bw, bondC: m.bc }); v.m = m; return v; };
+  WM.verdictAt = function (key, h, w) { var m = WM.metricsAt(key, h, w); if (!m) return null; var v = S.verdict({ melt: m.m, burn: m.b, bondW: m.bw, bondMin: m.bm, bondC: m.bc }); v.m = m; return v; };
   WM.keyFor = function (nW, worn) { return nW === 2 ? 'w2' : worn ? 'w3gastado' : 'w3'; };
   // HEAT equivalente: misma I²t que el pulso estándar del mapa (UF=0.79H, UP=53% WELD, DOWN 40 ms a 2.6 kA)
   WM.equivHeat = function (E, weld) {
@@ -93,8 +94,8 @@
   };
   function windowMap() {
     var key = 'w2', sel = null, useCal = true;
-    var CLS = { 'FRÍA': 'FRIA', 'DÉBIL': 'DEBIL', 'OK': 'OK', 'OK (caliente)': 'OKC', 'QUEMADA': 'QUEMADA' };
-    var SHORT = { 'FRÍA': 'F', 'DÉBIL': 'D', 'OK': 'OK', 'OK (caliente)': 'OK', 'QUEMADA': 'Q' };
+    var CLS = { 'ABIERTA': 'FRIA', 'FRÍA': 'FRIA', 'DÉBIL': 'DEBIL', 'OK': 'OK', 'OK (caliente)': 'OKC', 'QUEMADA': 'QUEMADA' };
+    var SHORT = { 'ABIERTA': 'A', 'FRÍA': 'F', 'DÉBIL': 'D', 'OK': 'OK', 'OK (caliente)': 'OK', 'QUEMADA': 'Q' };
     function nW() { return key === 'w2' ? 2 : 3; }
     function cal() { return useCal ? window.Calib.get(nW()) : 1; }
     function draw() {
@@ -211,15 +212,15 @@
       var rows = src.items.map(function (it) {
         var s = byKey[it.key], eq = it.eq;
         if (mode === 'eq') {
-          var v = S.verdict({ melt: eq.melt, burn: eq.burn, bondW: eq.bondW, bondC: eq.bondC });
-          return '<tr><td><span style="color:' + s.color + '">■</span> ' + s.name + '</td><td><span class="tag ' + v.cls + '">' + v.code + '</span></td><td>' + Math.round(eq.bondW * 100) + '%</td><td>' + Math.round(eq.bondC * 100) + '%</td><td>' + eq.melt.toFixed(2) + '</td><td>' + eq.Te + ' °C</td><td>' + eq.tEnd + ' ms</td><td>' + eq.Eel + ' J</td><td><button class="chip" data-open="' + it.key + '" type="button">Simular</button></td></tr>';
+          var v = S.verdict({ melt: eq.melt, burn: eq.burn, bondW: eq.bondW, bondMin: eq.bondMin, bondC: eq.bondC });
+          return '<tr><td><span style="color:' + s.color + '">■</span> ' + s.name + '</td><td><span class="tag ' + v.cls + '">' + v.code + '</span></td><td>' + Math.round(eq.bondW * 100) + '%</td><td>' + Math.round(eq.bondMin * 100) + '%</td><td>' + eq.melt.toFixed(2) + '</td><td>' + eq.Te + ' °C</td><td>' + eq.tEnd + ' ms</td><td>' + eq.Eel + ' J</td><td><button class="chip" data-open="' + it.key + '" type="button">Simular</button></td></tr>';
         }
         if (it.fOk == null) return '';
         var win = (it.fBurn / it.fOk - 1) * 100, wins = src.items.filter(function (x) { return x.fOk; }).map(function (x) { return (x.fBurn / x.fOk - 1) * 100; }), wMax = Math.max.apply(null, wins);
         return '<tr><td><span style="color:' + s.color + '">■</span> ' + s.name + '</td><td>×' + it.fOk.toFixed(3) + '</td><td>' + it.ok.E.toFixed(2) + '</td><td>' + it.ok.Eel + ' J</td><td>' + it.ok.Te + ' °C</td><td><b style="color:var(--' + (win >= 0.8 * wMax ? 'ok' : win >= 0.5 * wMax ? 'warn' : 'bad') + ')">' + win.toFixed(1) + '%</b></td><td>' + it.ok.tEnd + ' ms</td><td><button class="chip" data-open="' + it.key + '" data-f="' + it.fOk + '" type="button">Simular</button></td></tr>';
       }).join('');
       $('mTable').innerHTML = mode === 'eq'
-        ? '<table><thead><tr><th>Estrategia</th><th>Resultado</th><th>Alambres</th><th>Cierre</th><th>mm² fundidos</th><th>Pico punta</th><th>Corriente hasta</th><th>Energía</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
+        ? '<table><thead><tr><th>Estrategia</th><th>Resultado</th><th>Alambres</th><th>Alambre más débil</th><th>mm² fundidos</th><th>Pico punta</th><th>Corriente hasta</th><th>Energía</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
         : (src.items[0].fOk == null ? '<p class="muted">El cálculo a igual resultado está precalculado solo para el modelo sin calibrar; usa la vista de igual energía para el cálculo en vivo.</p>' :
           '<table><thead><tr><th>Estrategia</th><th>Escala de corriente para unir</th><th>I²t necesaria</th><th>Energía eléctrica</th><th>Pico punta (desgaste)</th><th>Margen hasta quemar</th><th>Corriente hasta</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>');
       // gráfica: temperatura de la punta y del cierre (igual energía)
@@ -234,7 +235,7 @@
       C.legend($('mLegend'), ss.map(function (s) { return { color: s.color, label: s.name }; }));
       $('mNote').innerHTML = mode === 'eq'
         ? '<b>Igual energía (I²t de la consigna).</b> Repartir la misma energía en más tiempo baja el pico de la punta, pero también el de la unión: a igual energía, las estrategias de varios pulsos salen más frías. Compararlas así sola es injusto.'
-        : conclusion(src, byKey) + '<br><br><b>Igual resultado.</b> Para cada estrategia se buscó (por bisección, 14 corridas) la escala de corriente mínima que une alambres y cierre, y la escala a la que se funde el cobre. Lo que importa: <b>cuánto se calienta la punta</b> para lograr la unión (desgaste) y <b>cuánto margen</b> hay hasta quemar (robustez).';
+        : conclusion(src, byKey) + '<br><br><b>Igual resultado.</b> Para cada estrategia se buscó (por bisección, 14 corridas) la escala de corriente mínima que une todos los alambres, y la escala a la que se funde el cobre. Lo que importa: <b>cuánto se calienta la punta</b> para lograr la unión (desgaste) y <b>cuánto margen</b> hay hasta quemar (robustez).';
     }
     function conclusion(src, byKey) {
       var its = src.items.filter(function (x) { return x.fOk && x.key !== 'extra'; }); if (!its.length) return '';
@@ -260,7 +261,7 @@
         var p = Object.assign({ nWires: nW, frameEvery: 5, iCal: cal }, JSON.parse(JSON.stringify(s.g)));
         window.SimUI.simulate(p).then(function (r) {
           var sm = r.summary;
-          items.push({ key: s.key, eq: { burn: sm.burn, bondW: sm.bondW, bondC: sm.bondC, melt: sm.melt, Te: Math.round(sm.peaks.Te), Eel: Math.round(sm.Eel), tEnd: Math.round(sm.tWeldEnd) },
+          items.push({ key: s.key, eq: { burn: sm.burn, bondW: sm.bondW, bondMin: sm.bondMin, bondC: sm.bondC, melt: sm.melt, Te: Math.round(sm.peaks.Te), Eel: Math.round(sm.Eel), tEnd: Math.round(sm.tWeldEnd) },
             ser: r.series.filter(function (o, i) { return i % 5 === 0; }).map(function (o) { return [Math.round(o.t), o.I, Math.round(o.Te), Math.round(o.Tc), Math.round(o.Tw)]; }) });
           k++; next();
         }).catch(function (err) { btn.disabled = false; $('mStatus').textContent = 'Error: ' + err.message; });

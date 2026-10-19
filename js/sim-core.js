@@ -10,55 +10,69 @@
 (function (root) {
   'use strict';
 
-  var MAT = { AIR: 0, W_EL: 1, CU_TERM: 2, CU_WIRE: 3, ENAMEL: 4, GROUND: 5, CLOSE: 6, C_EL: 7, C_GND: 8, W_TIP: 9 };
-  var MAT_NAMES = ['Aire', 'Electrodo (W)', 'Terminal (Cu)', 'Alambre (Cu)', 'Esmalte', 'Barra de tierra', 'Zona de cierre', 'Contacto electrodo', 'Contacto tierra', 'Punta del electrodo (W)'];
+  var MAT = { AIR: 0, W_EL: 1, CU_TERM: 2, CU_WIRE: 3, ENAMEL: 4, GROUND: 5, CLOSE: 6, C_EL: 7, C_GND: 8, W_TIP: 9, TIPC: 10 };
+  var MAT_NAMES = ['Aire', 'Electrodo (W)', 'Terminal (Cu)', 'Alambre (Cu)', 'Esmalte', 'Barra de tierra', 'Zona de cierre', 'Contacto electrodo', 'Contacto tierra', 'Punta del electrodo (W)', 'Punta del gancho apoyada'];
 
   function rhoCu(T) { return 1.72e-8 * (1 + 0.0039 * (T - 20)); }
   function rhoW(T) { return 5.6e-8 * (1 + 0.0045 * (T - 20)); }
 
   function buildGeometry(p) {
-    var dx = p.dx;
-    // dominio dinámico: crece si la terminal o los alambres no caben
-    var ro0 = (p.wireCore + p.enamel) * 1e-3, t0 = p.thick * 1e-3;
-    var free0 = Math.max(0, p.hookLen * 1e-3 - p.innerR * 1e-3 - p.nWires * p.wireDiam * 1e-3);
-    var needW = 1e-3 + t0 + p.nWires * 2 * ro0 + 0.25e-3 + Math.min(2.2e-3, Math.max(0.5e-3, free0 * p.closeFrac)) + 1.6e-3;
-    var needH = 1e-3 + t0 + 2 * ro0 + t0 + 3.75e-3;
+    var dx = p.dx, mm = 1e-3;
+    // El gancho es una tira de espesor t: pasa sobre los alambres, baja inclinada (closeAngle) y su punta
+    // se apoya sobre el cuerpo. El largo libre después del último alambre se conserva (largo desarrollado).
+    var t = p.thick * mm, rc = p.wireCore * mm, ro = (p.wireCore + p.enamel) * mm, pitch = 2 * ro;
+    var th = (p.closeAngle || 60) * Math.PI / 180;
+    var free = Math.max(0, p.hookLen * mm - p.innerR * mm - p.nWires * p.wireDiam * mm);
+    var xL = 1.0 * mm, yG0 = 0, yG1 = 1.0 * mm, yB0 = yG1, yB1 = yB0 + t;
+    var xW0 = xL + t, yWc = yB1 + ro, yT0 = yB1 + pitch, yT1 = yT0 + t, xW1 = xW0 + p.nWires * pitch;
+    var gap = yT0 - yB1, xS = xW1;
+    var slopeLen = gap / Math.sin(th), reaches = free >= slopeLen;
+    var run = reaches ? gap / Math.tan(th) : free * Math.cos(th);
+    var flat = reaches ? free - slopeLen : 0;
+    var xF0 = xS + run, xF1 = xF0 + flat, xT1 = Math.max(xF1, xF0 + t * Math.sin(th));
+    var closeLen = Math.min(flat, (p.closeLen || 1.0) * mm);
+    var needW = xT1 + 1.6 * mm, needH = yT1 + 3.75 * mm;
     var NX = Math.round(Math.max(p.domainW, needW) / dx), NY = Math.round(Math.max(p.domainH, needH) / dx);
     var domW = NX * dx, domH = NY * dx;
     var mat = new Uint8Array(NX * NY);
-    var mm = 1e-3;
     function fill(x0, x1, y0, y1, m) {
       for (var j = Math.max(0, Math.floor(y0 / dx + 1e-9)); j < Math.min(NY, Math.ceil(y1 / dx - 1e-9)); j++)
         for (var i = Math.max(0, Math.floor(x0 / dx + 1e-9)); i < Math.min(NX, Math.ceil(x1 / dx - 1e-9)); i++)
           mat[j * NX + i] = m;
     }
-    var t = p.thick * mm, rc = p.wireCore * mm, ro = (p.wireCore + p.enamel) * mm, pitch = 2 * ro;
-    var xL = 1.0 * mm;
-    var yG0 = 0, yG1 = 1.0 * mm;
-    var yB0 = yG1, yB1 = yB0 + t;
-    var xW0 = xL + t;
-    var yWc = yB1 + ro;
-    var yT0 = yB1 + pitch, yT1 = yT0 + t;
-    var xW1 = xW0 + p.nWires * pitch;
-    var free = Math.max(0, p.hookLen * mm - p.innerR * mm - p.nWires * p.wireDiam * mm);
-    var closeW = Math.min(2.2 * mm, Math.max(0.5 * mm, free * p.closeFrac));
-    var xC0 = xW1 + 0.25 * mm, xC1 = xC0 + closeW;
-    var xT1 = xC1;
-    fill(xL - 0.5 * mm, Math.max(xT1 + 0.6 * mm, xL + 6 * mm), yG0, yG1, MAT.GROUND);
-    fill(xL, xT1 + 0.4 * mm, yB0, yB1, MAT.CU_TERM);
-    fill(xL, xL + t, yB0, yT1, MAT.CU_TERM);
-    fill(xL, xT1, yT0, yT1, MAT.CU_TERM);
-    fill(xC0, xC1, yB1 + dx, yT0, MAT.CU_TERM);
-    fill(xC0, xC1, yB1, yB1 + dx, MAT.CLOSE);
+    fill(xL - 0.5 * mm, Math.max(xT1 + 0.6 * mm, xL + 6 * mm), yG0, yG1, MAT.GROUND);   // barra
+    fill(xL, xT1 + 0.4 * mm, yB0, yB1, MAT.CU_TERM);                                   // cuerpo
+    fill(xL, xL + t, yB0, yT1, MAT.CU_TERM);                                           // doblez
+    fill(xL, xS, yT0, yT1, MAT.CU_TERM);                                               // gancho sobre los alambres
+    // tramo inclinado y punta apoyada (banda de espesor perpendicular t)
+    var tc = t / Math.cos(th), tanT = Math.tan(th), xEnd = reaches ? xF1 : xS + run;
+    for (var j0 = 0; j0 < NY; j0++) for (var i0 = 0; i0 < NX; i0++) {
+      var x = (i0 + 0.5) * dx, y = (j0 + 0.5) * dx;
+      if (x < xS || x > xEnd + tc * Math.sin(th) * 0.5) continue;
+      var yb = yT0 - (x - xS) * tanT, lo, hi;
+      if (x <= xEnd) { lo = Math.max(yB1, yb); hi = Math.min(yT1, Math.max(reaches ? yB1 + t : 0, yb + tc)); }
+      else continue;
+      if (y >= lo && y < hi) mat[j0 * NX + i0] = MAT.CU_TERM;
+    }
+    // contacto de la punta con el cuerpo: los primeros closeLen mm son la "zona de cierre"
+    if (reaches && flat > 0) {
+      var jc = Math.round(yB1 / dx);
+      for (var ic = 0; ic < NX; ic++) {
+        var xc0 = (ic + 0.5) * dx;
+        if (xc0 >= xF0 && xc0 <= xF1 && mat[jc * NX + ic] === MAT.CU_TERM) mat[jc * NX + ic] = xc0 <= xF0 + closeLen ? MAT.CLOSE : MAT.TIPC;
+      }
+    }
+    // alambres con esmalte
     for (var w = 0; w < p.nWires; w++) {
-      var xc = xW0 + ro + w * pitch;
+      var xw = xW0 + ro + w * pitch;
       for (var j = 0; j < NY; j++) for (var i = 0; i < NX; i++) {
-        var x = (i + 0.5) * dx, y = (j + 0.5) * dx, d = Math.hypot(x - xc, y - yWc);
+        var xx = (i + 0.5) * dx, yy = (j + 0.5) * dx, d = Math.hypot(xx - xw, yy - yWc);
         if (d <= rc) mat[j * NX + i] = MAT.CU_WIRE;
         else if (d <= ro + 0.5 * dx && mat[j * NX + i] === MAT.AIR) mat[j * NX + i] = MAT.ENAMEL;
       }
     }
-    var xEc = (xW0 + xT1) / 2 + (p.elecX || 0) * mm, half = p.faceW * mm / 2;
+    // electrodo centrado sobre la fila de alambres (más el corrimiento)
+    var xEc = (xW0 + xW1) / 2 + (p.elecX || 0) * mm, half = p.faceW * mm / 2;
     var xE0 = Math.max(0, xEc - half), xE1 = Math.min(domW, xEc + half);
     fill(xE0, xE1, yT1, yT1 + dx, MAT.C_EL);
     fill(xE0, xE1, yT1 + dx, domH, MAT.W_EL);
@@ -67,9 +81,10 @@
       var jg = Math.round(yG1 / dx) - 1;
       if (mat[jg * NX + i2] === MAT.GROUND && mat[(jg + 1) * NX + i2] === MAT.CU_TERM) mat[jg * NX + i2] = MAT.C_GND;
     }
+    var xC0 = xF0, xC1 = xF0 + Math.max(closeLen, dx);
     return {
       NX: NX, NY: NY, dx: dx, mat: mat,
-      info: { xL: xL, xT1: xT1, xW0: xW0, xW1: xW1, yWc: yWc, ro: ro, xC0: xC0, xC1: xC1, yB1: yB1, yT0: yT0, yT1: yT1, xE0: xE0, xE1: xE1, free: free, closeW: closeW }
+      info: { xL: xL, xT1: xT1, xS: xS, xF0: xF0, xF1: xF1, theta: th, reaches: reaches, slopeLen: slopeLen, flat: flat, closeLen: closeLen, xW0: xW0, xW1: xW1, yWc: yWc, ro: ro, xC0: xC0, xC1: xC1, yB1: yB1, yT0: yT0, yT1: yT1, xE0: xE0, xE1: xE1, free: free, closeW: closeLen }
     };
   }
 
@@ -163,15 +178,25 @@
     var gW = new Float64Array(N), gE = new Float64Array(N), gS = new Float64Array(N), gN = new Float64Array(N), gD = new Float64Array(N);
     var kW = new Float64Array(N), kE = new Float64Array(N), kS = new Float64Array(N), kN = new Float64Array(N), kB = new Float64Array(N), invRc = new Float64Array(N);
     var i, j, n;
-    var act = [], enam = [], clos = [], cuc = [];
+    var act = [], enam = [], clos = [], cuc = [], tipc = [];
     for (n = 0; n < N; n++) {
       var m0 = mat[n];
       T[n] = (m0 === MAT.W_EL || m0 === MAT.W_TIP || m0 === MAT.C_EL) ? p.Tel0 : p.T0;
       if (m0 !== MAT.AIR) act.push(n);
       if (m0 === MAT.ENAMEL) enam.push(n);
       if (m0 === MAT.CLOSE) clos.push(n);
-      if (m0 === MAT.CU_TERM || m0 === MAT.CU_WIRE || m0 === MAT.CLOSE) cuc.push(n);
+      if (m0 === MAT.TIPC) tipc.push(n);
+      if (m0 === MAT.CU_TERM || m0 === MAT.CU_WIRE || m0 === MAT.CLOSE || m0 === MAT.TIPC) cuc.push(n);
     }
+    var nWv = p.nWires, wireOf = new Int8Array(enam.length), wCount = new Array(nWv).fill(0);
+    (function () {
+      var gi = G.info;
+      for (var e0 = 0; e0 < enam.length; e0++) {
+        var c0 = enam[e0], x0 = (c0 % NX + 0.5) * dx;
+        var wi0 = Math.max(0, Math.min(nWv - 1, Math.floor((x0 - gi.xW0) / (2 * gi.ro))));
+        wireOf[e0] = wi0; wCount[wi0]++;
+      }
+    })();
     act = Int32Array.from(act); enam = Int32Array.from(enam); clos = Int32Array.from(clos); cuc = Int32Array.from(cuc);
     var nAct = act.length;
     var TBURN = p.Tburn, TBOND = p.Tbond, RREF = p.Rref * 1e-3, REXT = p.Rext * 1e-3, TMELT = 1083, LCU = 1.84e9;
@@ -197,6 +222,7 @@
             k[nn] = 0.6 + (390 - 0.6) * b * (0.3 + 0.7 * bond[nn]);
             rc[nn] = 2.0e6 * (1 - b) + 3.45e6 * b; break;
           }
+          case MAT.TIPC:
           case MAT.CLOSE: {
             var f = p.fClose + (1 - p.fClose) * bond[nn];
             sig[nn] = 1 / (rhoCu(t) * f); k[nn] = 120 + 270 * bond[nn]; rc[nn] = 3.45e6; break;
@@ -317,21 +343,23 @@
         if (T[c2] > TBURN && burn[c2] < 1) burn[c2] = Math.min(1, burn[c2] + dt / p.burnTime * Math.min(3, (T[c2] - TBURN) / 100 + 0.3));
         if (burn[c2] >= 1 && T[c2] > TBOND && bond[c2] < 1) bond[c2] = Math.min(1, bond[c2] + dt / p.bondTime * Math.min(3, (T[c2] - TBOND) / 100 + 0.3));
       }
+      for (var b5 = 0; b5 < tipc.length; b5++) { var c5 = tipc[b5]; if (T[c5] > TBOND && bond[c5] < 1) bond[c5] = Math.min(1, bond[c5] + dt / p.bondTime * Math.min(3, (T[c5] - TBOND) / 100 + 0.3)); }
       for (var b3 = 0; b3 < clos.length; b3++) {
         var c3 = clos[b3];
         if (T[c3] > TBOND && bond[c3] < 1) bond[c3] = Math.min(1, bond[c3] + dt / p.bondTime * Math.min(3, (T[c3] - TBOND) / 100 + 0.3));
       }
       if (T[probes.wire] > pk.Tw) pk.Tw = T[probes.wire]; if (T[probes.tang] > pk.Tt) pk.Tt = T[probes.tang];
       if (T[probes.close] > pk.Tc) pk.Tc = T[probes.close]; if (T[probes.elec] > pk.Te) pk.Te = T[probes.elec];
-      if (s === sEnd) { for (var b4 = 0; b4 < nAct; b4++) { var c4 = act[b4], m4 = mat[c4]; if (m4 === MAT.CU_TERM || m4 === MAT.CU_WIRE || m4 === MAT.ENAMEL || m4 === MAT.CLOSE) EjEnd += rc[c4] * (T[c4] - T0) * vol; } }
+      if (s === sEnd) { for (var b4 = 0; b4 < nAct; b4++) { var c4 = act[b4], m4 = mat[c4]; if (m4 === MAT.CU_TERM || m4 === MAT.CU_WIRE || m4 === MAT.ENAMEL || m4 === MAT.CLOSE || m4 === MAT.TIPC) EjEnd += rc[c4] * (T[c4] - T0) * vol; } }
       if (s % sEvery === 0) {
-        var bE = 0, bdE = 0, bdC = 0, mC = 0;
-        for (var e1 = 0; e1 < enam.length; e1++) { bE += burn[enam[e1]]; bdE += bond[enam[e1]]; }
+        var bE = 0, bdE = 0, bdC = 0, mC = 0, wB = new Array(nWv).fill(0);
+        for (var e1 = 0; e1 < enam.length; e1++) { bE += burn[enam[e1]]; bdE += bond[enam[e1]]; wB[wireOf[e1]] += bond[enam[e1]]; }
+        var bMin = 1; for (var w1 = 0; w1 < nWv; w1++) if (wCount[w1]) bMin = Math.min(bMin, wB[w1] / wCount[w1]);
         for (var e2 = 0; e2 < clos.length; e2++) bdC += bond[clos[e2]];
         for (var e3 = 0; e3 < cuc.length; e3++) if (melt[cuc[e3]] > 0.5) mC++;
         series.push({ t: t * 1e3, set: set, we: pi + 1, I: I / 1e3, V: V, pulse: Math.min(100, V / p.Vmax * 100), P: Pw / 1e3, R: Rtot * 1e3,
           Tw: T[probes.wire], Tt: T[probes.tang], Tc: T[probes.close], Te: T[probes.elec],
-          burn: enam.length ? bE / enam.length : 0, bondW: enam.length ? bdE / enam.length : 0, bondC: clos.length ? bdC / clos.length : 0, melt: mC * dx * dx * 1e6 });
+          burn: enam.length ? bE / enam.length : 0, bondW: enam.length ? bdE / enam.length : 0, bondC: clos.length ? bdC / clos.length : 0, bondMin: enam.length ? bMin : 0, melt: mC * dx * dx * 1e6 });
         var ls = series[series.length - 1];
         if (tBurn === null && ls.burn >= 0.95) tBurn = ls.t; if (tBondC === null && ls.bondC >= 0.95) tBondC = ls.t;
       }
@@ -344,8 +372,8 @@
       summary: {
         Eel: Eel, Edom: Edom, Eset: Eset, Ejoint: EjEnd, peaks: pk, tBurn: tBurn, tBondC: tBondC, tWeldEnd: wf.tWeldEnd * 1e3,
         perPulse: perPulse.map(function (x) { return { E: x.E, Imax: x.Imax / 1e3, Imean: x.n ? x.Isum / x.n / 1e3 : 0 }; }),
-        geom: geomOut, burn: last.burn, bondW: last.bondW, bondC: last.bondC, melt: last.melt, Rref: RREF * 1e3, iCal: iCal,
-        free: G.info.free * 1e3, closeW: G.info.closeW * 1e3
+        geom: geomOut, burn: last.burn, bondW: last.bondW, bondMin: last.bondMin, bondC: last.bondC, melt: last.melt, Rref: RREF * 1e3, iCal: iCal,
+        free: G.info.free * 1e3, closeW: G.info.closeW * 1e3, reaches: G.info.reaches
       }
     };
   }
@@ -353,20 +381,22 @@
   var DEFAULTS = {
     dx: 0.125e-3, domainW: 10.5e-3, domainH: 8e-3, dt: 2.5e-5, elecEvery: 0.001, frameEvery: 0.01,
     nWires: 3, wireDiam: 1.15, wireCore: 0.55, enamel: 0.075, thick: 1.0, hookW: 2.0, hookLen: 8.5, innerR: 0.65, closeFrac: 0.35,
-    faceW: 4.5, elecX: 0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
-    fEnamel: 8, fClose: 25, fElec: 2.5, Rext: 0.16, Rref: 0.28, Imax: 9.9, Vmax: 2.83, wear: 0, faceDepth: 3.0, tipLen: 0.75, forceLoss: 0.8, zLoss: 25, gndCu: false, iCal: 1,
+    faceW: 4.5, elecX: 0, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
+    fEnamel: 8, fClose: 25, fElec: 2.5, Rext: 0.16, Rref: 0.28, Imax: 9.9, Vmax: 2.83, wear: 0, faceDepth: 3.0, tipLen: 0.75, forceLoss: 0.8, zLoss: 14, gndCu: false, iCal: 1,
     mode: 'SCD', pre: false, preT: 150, preI: 2.8, cool: 30, up: 240, weld: 450, down: 40, uf: 3.15, heat: 4.0, dl: 2.6, hold: 300
   };
 
   function verdict(sm) {
+    if (sm.reaches === false && !(sm.melt > 1.0)) return { code: 'ABIERTA', cls: 'bad', text: 'La punta del gancho no alcanza el cuerpo: con este largo de gancho y estos alambres el cierre queda abierto, sin importar la energía.' };
     if (sm.melt > 1.0) return { code: 'QUEMADA', cls: 'bad', text: 'Cobre fundido (' + sm.melt.toFixed(1) + ' mm² en el corte): quemada / expulsión.' };
     if (sm.burn < 0.9) return { code: 'FRÍA', cls: 'bad', text: 'El esmalte no se removió por completo (' + Math.round(sm.burn * 100) + '%). Unión fría: abre con poca fuerza y R alta.' };
-    if (sm.bondC < 0.5 || sm.bondW < 0.5) return { code: 'DÉBIL', cls: 'warn', text: 'Esmalte removido pero unión incompleta (alambres ' + Math.round(sm.bondW * 100) + '%, cierre ' + Math.round(sm.bondC * 100) + '%). Pasa resistencia, pero puede abrir en jalón o con vibración.' };
+    var bm = sm.bondMin != null ? sm.bondMin : sm.bondW;
+    if (bm < 0.5) return { code: 'DÉBIL', cls: 'warn', text: 'Esmalte removido pero unión incompleta: el alambre más débil está unido ' + Math.round(bm * 100) + '% (promedio ' + Math.round(sm.bondW * 100) + '%). Pasa resistencia, pero puede abrir en jalón o con vibración.' };
     if (sm.melt > 0.3) return { code: 'OK (caliente)', cls: 'warn', text: 'Unión completa con fusión superficial bajo el electrodo: poco margen hacia quemado y más desgaste.' };
-    return { code: 'OK', cls: 'ok', text: 'Esmalte removido, alambres y cierre unidos, sin cobre fundido.' };
+    return { code: 'OK', cls: 'ok', text: 'Esmalte removido y todos los alambres unidos, sin cobre fundido.' + (sm.bondC != null && sm.bondC < 0.5 ? ' La punta del gancho solo está apoyada (sin unir), lo normal en fusing.' : '') };
   }
   // orden de clases para calibración: 0 fría, 1 débil, 2 ok, 3 ok caliente, 4 quemada
-  var CLASS_ORDER = { 'FRÍA': 0, 'DÉBIL': 1, 'OK': 2, 'OK (caliente)': 3, 'QUEMADA': 4 };
+  var CLASS_ORDER = { 'ABIERTA': 0, 'FRÍA': 0, 'DÉBIL': 1, 'OK': 2, 'OK (caliente)': 3, 'QUEMADA': 4 };
 
   var api = { verdict: verdict, CLASS_ORDER: CLASS_ORDER, run: run, buildGeometry: buildGeometry, makeWaveform: makeWaveform, normalizePulses: normalizePulses, energyOf: energyOf, checkProgram: checkProgram, pulseOf: pulseOf, MAT: MAT, MAT_NAMES: MAT_NAMES, DEFAULTS: DEFAULTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.FusingSim = api;

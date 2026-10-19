@@ -7,7 +7,7 @@
   function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
   function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
   var RES = ['OK', 'DÉBIL', 'FRÍA', 'QUEMADA'];
-  var ORD = { 'FRÍA': 0, 'DÉBIL': 1, 'OK': 2, 'OK (caliente)': 2.5, 'QUEMADA': 3.5 };
+  var ORD = { 'ABIERTA': 0, 'FRÍA': 0, 'DÉBIL': 1, 'OK': 2, 'OK (caliente)': 2.5, 'QUEMADA': 3.5 };
   var AWG = { 14: 1.628, 15: 1.450, 16: 1.291, 17: 1.150, 18: 1.024, 19: 0.912, 20: 0.812, 21: 0.723, 22: 0.644 };
 
   /* ---------------- almacén de resultados ---------------- */
@@ -132,7 +132,7 @@
     function upd() {
       var sc = scan(W.weld), r = okRange(sc), svg = $('wzStrip');
       while (svg.firstChild) svg.removeChild(svg.firstChild);
-      var col = { 'FRÍA': '#8fb7dd', 'DÉBIL': '#f1d27a', 'OK': '#7cc795', 'OK (caliente)': '#c9dd7f', 'QUEMADA': '#e9877b' };
+      var col = { 'ABIERTA': '#9aa3ad', 'FRÍA': '#8fb7dd', 'DÉBIL': '#f1d27a', 'OK': '#7cc795', 'OK (caliente)': '#c9dd7f', 'QUEMADA': '#e9877b' };
       var x0 = 40, x1 = 510, X = function (h) { return x0 + (h - 3.0) / 2.6 * (x1 - x0); };
       sc.forEach(function (o) { C.el('rect', { x: X(o.h), y: 20, width: (x1 - x0) / sc.length + 0.6, height: 40, fill: col[o.v.code] }, svg); });
       for (var h = 3.0; h <= 5.61; h += 0.4) { var t = C.el('text', { x: X(h), y: 78, 'text-anchor': 'middle' }, svg); t.textContent = h.toFixed(1); }
@@ -182,7 +182,7 @@
       var cv = $('wzPlanMap'), ctx = cv.getContext('2d'), Wd = cv.width, Hd = cv.height, key = mapKeyFor(W.nW), cal = calFor(W.nW), es = energyScale();
       var hMin = Math.min.apply(null, pl.hs) * 0.9, hMax = Math.max.apply(null, pl.hs) * 1.1, wMin = Math.max(200, Math.min.apply(null, pl.ws) * 0.8), wMax = Math.min(600, Math.max.apply(null, pl.ws) * 1.2);
       if (wMax - wMin < 50) { wMin = Math.max(200, wMin - 50); wMax = Math.min(600, wMax + 50); }
-      var col = { 'FRÍA': '#8fb7dd', 'DÉBIL': '#f1d27a', 'OK': '#7cc795', 'OK (caliente)': '#c9dd7f', 'QUEMADA': '#e9877b' }, nx = 60, ny = 30;
+      var col = { 'ABIERTA': '#9aa3ad', 'FRÍA': '#8fb7dd', 'DÉBIL': '#f1d27a', 'OK': '#7cc795', 'OK (caliente)': '#c9dd7f', 'QUEMADA': '#e9877b' }, nx = 60, ny = 30;
       for (var a = 0; a < nx; a++) for (var b = 0; b < ny; b++) {
         var h = hMin + (a + 0.5) / nx * (hMax - hMin), w = wMin + (b + 0.5) / ny * (wMax - wMin);
         var v = window.WindowMap.verdictAt(key, h * cal / es, w);
@@ -246,7 +246,7 @@
         [3.6, 3.8, 4.0, 4.2, 4.4, 4.6].forEach(function (h) { [350, 450].forEach(function (w) {
           for (var k = 0; k < 2; k++) {
             var hn = h * 0.94 * (1 + (R() - 0.5) * 0.03), v = window.WindowMap.verdictAt('w3', hn, w), code = v.code === 'OK (caliente)' ? 'OK' : v.code;
-            var pull = Math.max(0, Math.round(15 + 70 * v.m.bc * v.m.bw + (R() - 0.5) * 12 - (v.m.m > 1 ? 25 : 0)));
+            var pull = Math.max(0, Math.round(15 + 70 * v.m.bm * v.m.bw + (R() - 0.5) * 12 - (v.m.m > 1 ? 25 : 0)));
             ex.push(newRow({ nW: 3, heat: h, weld: w, up: Math.round(w * 0.53), uf: +(h * 0.79).toFixed(2), down: 40, dl: 2.6, res: code, R: +(7.62 + (R() - 0.5) * 0.08 + (code === 'FRÍA' ? 0.15 : 0)).toFixed(2), pull: pull, note: 'EJEMPLO FICTICIO' }));
           }
         }); });

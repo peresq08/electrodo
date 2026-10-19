@@ -9,13 +9,13 @@
   var AWG = { 14: 1.628, 15: 1.450, 16: 1.291, 17: 1.150, 18: 1.024, 19: 0.912, 20: 0.812, 21: 0.723, 22: 0.644 };
   var P = Object.assign({}, S.DEFAULTS, { nWires: 3, awg: 17 });
   var GEO0 = { awg: 17, thick: 1.0, hookLen: 8.5, elecX: 0, faceW: 4.5 };
-  var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'elecX', 'faceW', 'faceDepth'];
+  var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'closeAngle', 'elecX', 'faceW', 'faceDepth'];
   var PROG = PU.defaultProgram();
   function pw(o) { return S.pulseOf(Object.assign({ on: true, ctrl: 'SCD', puls: 1, intv: 0 }, o)); }
   function prog(we1, we2, we3, cool1, cool2, hold) { return { we: [we1 ? pw(we1) : S.pulseOf({}), we2 ? pw(we2) : S.pulseOf({}), we3 ? pw(we3) : S.pulseOf({})], cool1: cool1 || 0, cool2: cool2 || 0, hold: hold == null ? 250 : hold }; }
   var T3 = { uf: 3.15, heat: 4.0, dl: 2.6, up: 240, weld: 450, down: 40 };
   var E_T3 = S.energyOf(prog(T3)).total;
-  var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, elecX: 0, faceW: 4.5 };
+  var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, closeAngle: 60, elecX: 0, faceW: 4.5 };
 
   var AWG_OPTS = [[14, '14 AWG · Ø1.63'], [15, '15 AWG · Ø1.45'], [16, '16 AWG · Ø1.29'], [17, '17 AWG · Ø1.15'], [18, '18 AWG · Ø1.02'], [19, '19 AWG · Ø0.91'], [20, '20 AWG · Ø0.81'], [21, '21 AWG · Ø0.72'], [22, '22 AWG · Ø0.64']];
   var groups = [
@@ -23,7 +23,8 @@
       { k: 'nWires', type: 'seg', opts: [[1, '1'], [2, '2'], [3, '3'], [4, '4']], label: 'Alambres en el gancho' },
       { k: 'awg', type: 'select', opts: AWG_OPTS, label: 'Calibre del alambre' },
       { k: 'thick', label: '<abbr title="Espesor del material de la terminal">Espesor</abbr> (mm)', min: 0.5, max: 1.5, step: 0.05, d: 2 },
-      { k: 'hookLen', label: '<abbr title="Largo desarrollado del gancho; define cuánto gancho queda libre para cerrar">Largo de gancho</abbr> (mm)', min: 5, max: 12, step: 0.1, d: 1 }
+      { k: 'hookLen', label: '<abbr title="Largo desarrollado del gancho; define cuánto gancho queda libre después de los alambres">Largo de gancho</abbr> (mm)', min: 5, max: 12, step: 0.1, d: 1 },
+      { k: 'closeAngle', label: '<abbr title="Ángulo con el que la tira baja del último alambre hacia el cuerpo">Ángulo de bajada</abbr> (°)', min: 30, max: 85, step: 1, d: 0 }
     ] },
     { name: 'Electrodo y barra', id: 'gElec', geo: true, items: [
       { k: 'elecX', label: '<abbr title="Corrimiento del centro del electrodo a lo largo del gancho: negativo hacia el doblez, positivo hacia el cierre">Posición</abbr> (mm)', min: -2.5, max: 2.5, step: 0.05, d: 2 },
@@ -153,7 +154,7 @@
     calibBox(); groupSummaries();
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
-  function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5; }
+  function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60; }
   var geoTimer = null;
   function geoPreview(k) {
     if (GEO_KEYS.concat(['wear', 'gndCu']).indexOf(k) < 0) return;
@@ -165,7 +166,7 @@
       drawSection($('heat'), { NX: g.NX, NY: g.NY, mat: Array.from(g.mat), dx: g.dx }, null, 'mat');
       var ctx = $('heat').getContext('2d'); ctx.font = '600 22px "IBM Plex Sans", sans-serif'; ctx.fillStyle = '#fff';
       ctx.fillText('Vista previa del corte · presiona Simular', 16, 32);
-      $('heatLegend').textContent = 'Gancho libre para cerrar: ' + (g.info.free * 1e3).toFixed(2) + ' mm · electrodo de ' + (g.info.xE0 * 1e3).toFixed(2) + ' a ' + (g.info.xE1 * 1e3).toFixed(2) + ' mm · gancho de ' + (g.info.xL * 1e3).toFixed(2) + ' a ' + (g.info.xT1 * 1e3).toFixed(2) + ' mm' + (g.info.xE1 > g.info.xT1 + 1e-6 ? ' · el electrodo sobresale del gancho' : '');
+      $('heatLegend').textContent = 'Gancho libre después de los alambres: ' + (g.info.free * 1e3).toFixed(2) + ' mm (' + (g.info.reaches ? 'baja ' + (g.info.slopeLen * 1e3).toFixed(2) + ' mm y apoya ' + (g.info.flat * 1e3).toFixed(2) + ' mm' : 'NO alcanza el cuerpo') + ') · electrodo de ' + (g.info.xE0 * 1e3).toFixed(2) + ' a ' + (g.info.xE1 * 1e3).toFixed(2) + ' mm · gancho de ' + (g.info.xL * 1e3).toFixed(2) + ' a ' + (g.info.xT1 * 1e3).toFixed(2) + ' mm' + (g.info.xE1 > g.info.xT1 + 1e-6 ? ' · el electrodo sobresale del gancho' : '');
     }, 120);
   }
   function params() {
@@ -219,7 +220,7 @@
   }
 
   // ---------- render del corte ----------
-  var MATCOL = ['#0e1013', '#7b8794', '#c87a43', '#e09a5c', '#3f8f5a', '#5c6670', '#d1a23c', '#a0aab5', '#808a94', '#97a3b0'];
+  var MATCOL = ['#0e1013', '#7b8794', '#c87a43', '#e09a5c', '#3f8f5a', '#5c6670', '#d1a23c', '#a0aab5', '#808a94', '#97a3b0', '#a8743f'];
   function cmapT(t) {
     var x = Math.max(0, Math.min(1, (t - 20) / 1380));
     var stops = [[0, 20, 22, 60], [0.2, 80, 18, 120], [0.4, 170, 40, 110], [0.58, 230, 90, 50], [0.75, 250, 160, 30], [0.9, 250, 225, 90], [1, 255, 255, 220]];
@@ -231,7 +232,7 @@
   }
   function hex(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
   function cmapF(f) { var a = [70, 110, 190], b = [70, 200, 120]; return [a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1]), a[2] + f * (b[2] - a[2])]; }
-  function grp(m) { return m === 3 ? 2 : m === 6 ? 2 : m === 9 ? 1 : m === 7 ? 1 : m === 8 ? 5 : m; }
+  function grp(m) { return m === 3 ? 2 : m === 6 ? 2 : m === 10 ? 2 : m === 9 ? 1 : m === 7 ? 1 : m === 8 ? 5 : m; }
   function grey(m) { var h = hex(MATCOL[m]); var g = (h[0] + h[1] + h[2]) / 3 * 0.45; return [g, g, g + 4]; }
   function drawSection(canvas, r, fr, lay) {
     var ctx = canvas.getContext('2d'), NX = r.NX, NY = r.NY, sc = Math.max(4, Math.floor(840 / NX));
@@ -243,7 +244,7 @@
       else if (lay === 'mat' || !fr) col = hex(MATCOL[m]);
       else if (lay === 'T') col = cmapT(fr.T[n]);
       else if (lay === 'burn') col = m === 4 ? (fr.burn[n] >= 1 ? [230, 150, 70] : cmapF(fr.burn[n])) : grey(m);
-      else if (lay === 'bond') col = (m === 4 || m === 6) ? cmapF(fr.bond[n]) : grey(m);
+      else if (lay === 'bond') col = (m === 4 || m === 6 || m === 10) ? cmapF(fr.bond[n]) : grey(m);
       if (fr && fr.melt && fr.melt[n] > 0.5 && lay !== 'mat') col = [255, 255, 255];
       var py = NY - 1 - j;
       for (var a = 0; a < sc; a++) for (var b = 0; b < sc; b++) {
@@ -299,7 +300,7 @@
       if (m === 0) { hr.style.display = 'none'; return; }
       var s = S.MAT_NAMES[m] + ' · ' + fr.T[n].toFixed(0) + ' °C';
       if (m === 4) s += ' · esmalte ' + Math.round((1 - fr.burn[n]) * 100) + '% · unión ' + Math.round(fr.bond[n] * 100) + '%';
-      if (m === 6) s += ' · unión ' + Math.round(fr.bond[n] * 100) + '%';
+      if (m === 6 || m === 10) s += ' · unión ' + Math.round(fr.bond[n] * 100) + '%';
       if (fr.melt[n] > 0.5) s += ' · FUNDIDO';
       s += ' · (' + (x * cur.dx * 1e3).toFixed(2) + ', ' + (y * cur.dx * 1e3).toFixed(2) + ') mm';
       hr.textContent = s; hr.style.display = 'block';
@@ -326,7 +327,7 @@
     if (rs) ser.push({ x: rt, y: T(rs, 'I'), color: cu, width: 1.5, dash: '6 4', opacity: 0.55 });
     C.line($('chI'), { series: ser, xMin: 0, xMax: xMax, yMin: 0, xLabel: 'ms', yLabel: 'kA', cursor: tNow, bands: bands });
     C.legend($('lgI'), [{ color: cu, label: 'Corriente real' }, { color: ink3, label: 'Consigna (kA equivalentes)' }].concat(rs ? [{ color: cu, label: 'Referencia (punteada)' }] : []).concat([0, 1, 2].filter(function (i) { return s.some(function (o) { return o.we === i + 1 && o.I > 0; }); }).map(function (i) { return { color: PU.WE_COL[i], label: 'WE' + (i + 1) + ' (banda)' }; })));
-    var pc = { Tw: '#2c8fd6', Tt: '#d4a017', Tc: '#3a9a5b', Te: '#d0473b' }, lab = { Tw: 'Alambre central', Tt: 'Gancho-alambre', Tc: 'Cierre', Te: 'Punta electrodo' };
+    var pc = { Tw: '#2c8fd6', Tt: '#d4a017', Tc: '#3a9a5b', Te: '#d0473b' }, lab = { Tw: 'Alambre central', Tt: 'Gancho-alambre', Tc: 'Punta del gancho', Te: 'Punta electrodo' };
     var serT = [];
     Object.keys(pc).forEach(function (k) { serT.push({ x: tt, y: T(s, k), color: pc[k], width: 2 }); if (rs) serT.push({ x: rt, y: T(rs, k), color: pc[k], width: 1.4, dash: '6 4', opacity: 0.5 }); });
     C.line($('chT'), { series: serT, xMin: 0, xMax: xMax, yMin: 0, yMax: Math.max(1300, cur.summary.peaks.Te * 1.05), xLabel: 'ms', yLabel: '°C', cursor: tNow, bands: bands,
@@ -337,10 +338,10 @@
     if (rs) { serR.push({ x: rt, y: rs.map(function (o) { return o.I > 0 ? o.R : NaN; }), color: vi, width: 1.4, dash: '6 4', opacity: 0.5 }); serR.push({ x: rt, y: T(rs, 'P'), color: cu, width: 1.4, dash: '6 4', opacity: 0.5, axis: 2 }); }
     C.line($('chR'), { series: serR, xMin: 0, xMax: xMax, yMin: 0, xLabel: 'ms', yLabel: 'mΩ', y2Label: 'kW', cursor: tNow, bands: bands });
     C.legend($('lgR'), [{ color: vi, label: 'R medida entre electrodos (mΩ)' }, { color: cu, label: 'Potencia (kW)' }]);
-    var serB = [{ x: tt, y: T(s, 'burn', 100), color: '#6b7a8c', width: 2 }, { x: tt, y: T(s, 'bondW', 100), color: '#2c8fd6', width: 2 }, { x: tt, y: T(s, 'bondC', 100), color: ok, width: 2 }, { x: tt, y: T(s, 'melt'), color: '#d0473b', width: 2, axis: 2 }];
-    if (rs) serB.push({ x: rt, y: T(rs, 'bondC', 100), color: ok, width: 1.4, dash: '6 4', opacity: 0.5 });
+    var serB = [{ x: tt, y: T(s, 'burn', 100), color: '#6b7a8c', width: 2 }, { x: tt, y: T(s, 'bondW', 100), color: '#2c8fd6', width: 2 }, { x: tt, y: T(s, 'bondMin', 100), color: ok, width: 2 }, { x: tt, y: T(s, 'bondC', 100), color: '#d4a017', width: 1.5, dash: '3 3' }, { x: tt, y: T(s, 'melt'), color: '#d0473b', width: 2, axis: 2 }];
+    if (rs) serB.push({ x: rt, y: T(rs, 'bondMin', 100), color: ok, width: 1.4, dash: '6 4', opacity: 0.5 });
     C.line($('chB'), { series: serB, xMin: 0, xMax: xMax, yMin: 0, yMax: 105, y2Min: 0, y2Max: Math.max(2, cur.summary.melt * 1.2), xLabel: 'ms', yLabel: '%', y2Label: 'mm² fundidos', cursor: tNow, bands: bands });
-    C.legend($('lgB'), [{ color: '#6b7a8c', label: 'Esmalte retirado' }, { color: '#2c8fd6', label: 'Alambres unidos' }, { color: ok, label: 'Cierre unido' }, { color: '#d0473b', label: 'Cobre fundido (mm², eje der.)' }]);
+    C.legend($('lgB'), [{ color: '#6b7a8c', label: 'Esmalte retirado' }, { color: '#2c8fd6', label: 'Alambres unidos' }, { color: ok, label: 'Alambre más débil' }, { color: '#d4a017', label: 'Punta del gancho (unión)' }, { color: '#d0473b', label: 'Cobre fundido (mm², eje der.)' }]);
   }
   function metric(label, v, d, frac, cls) {
     return '<div class="metric"><div class="l">' + label + '</div><div class="v"' + (cls ? ' style="color:var(--' + cls + ')"' : '') + '>' + v + '</div>' + (d ? '<div class="d muted">' + d + '</div>' : '') + (frac != null ? '<div class="meter"><i style="width:' + Math.round(Math.max(0, Math.min(1, frac)) * 100) + '%"></i></div>' : '') + '</div>';
@@ -357,7 +358,7 @@
     $('metrics').innerHTML =
       metric('Esmalte retirado', Math.round(s.burn * 100) + '%', s.tBurn ? 'completo a los ' + s.tBurn.toFixed(0) + ' ms' : 'no se completó', s.burn) +
       metric('Alambres unidos', Math.round(s.bondW * 100) + '%', diff(s.bondW * 100, r && r.bondW * 100, 0, ' pts'), s.bondW) +
-      metric('Cierre unido', Math.round(s.bondC * 100) + '%', diff(s.bondC * 100, r && r.bondC * 100, 0, ' pts'), s.bondC) +
+      metric('Alambre más débil', Math.round(s.bondMin * 100) + '%', r ? diff(s.bondMin * 100, r.bondMin * 100, 0, ' pts') : (s.reaches === false ? 'gancho abierto' : 'punta del gancho ' + Math.round(s.bondC * 100) + '% unida'), s.bondMin) +
       metric('Cobre fundido', s.melt.toFixed(2) + ' mm²', s.melt > 1 ? 'quemada' : s.melt > 0.3 ? 'superficial' : 'sin fusión', null, s.melt > 1 ? 'bad' : s.melt > 0.3 ? 'warn' : null) +
       metric('Pico punta electrodo', s.peaks.Te.toFixed(0) + ' °C', diff(s.peaks.Te, r && r.peaks.Te, 0, ' °C'), null, s.peaks.Te > 1300 ? 'bad' : null) +
       metric('Pico alambre central', s.peaks.Tw.toFixed(0) + ' °C', diff(s.peaks.Tw, r && r.peaks.Tw, 0, ' °C')) +
