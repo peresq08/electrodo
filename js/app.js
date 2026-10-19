@@ -60,7 +60,7 @@
     { grp: 'Electrodo', name: 'Gastado + técnico sube corriente', p: { nWires: 3, wear: 0.4 }, g: prog({ uf: 3.15, heat: 4.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
     { grp: 'Electrodo', name: 'Electrodo corrido hacia el cierre', p: { nWires: 3, elecX: 1.5 }, g: prog(T3) },
     { grp: 'Electrodo', name: 'Electrodo corrido hacia el doblez', p: { nWires: 3, elecX: -1.5 }, g: prog(T3) },
-    { grp: 'Electrodo', name: 'Cara angosta', p: { nWires: 3, faceDepth: 1.75 }, g: prog({ uf: 3.1, heat: 3.9, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Electrodo', name: 'Cara angosta (misma corriente)', p: { nWires: 3, faceDepth: 1.75 }, g: prog(T3) },
     { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo plano', p: { nWires: 2, awg: 14 }, g: prog({ uf: 3.4, heat: 4.3, dl: 2.6, up: 240, weld: 450, down: 40 }) },
     { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo escalonado', p: { nWires: 2, awg: 14, elecType: 'step', stepLen: 2.0 }, g: prog({ uf: 4.9, heat: 6.2, dl: 3.0, up: 240, weld: 450, down: 40 }) },
     { grp: 'Control', name: 'Modo PWR', p: { nWires: 3 }, g: prog(Object.assign({ ctrl: 'PWR' }, T3)) }
