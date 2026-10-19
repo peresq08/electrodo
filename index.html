@@ -297,6 +297,20 @@
         <tr><td>No cubre el último alambre de la fila</td><td>Largo de cara que cubra toda la fila de alambres</td></tr>
       </tbody></table></div>
   </div>
+
+  <h3 style="margin-top:26px">Electrodo escalonado (calibres gruesos)</h3>
+  <div class="grid2">
+    <div class="card"><p>Con alambre grueso, la punta del gancho queda muy abajo respecto a la parte que pasa sobre los alambres (la altura es el diámetro del alambre). Un electrodo plano solo pisa los alambres y la punta queda apoyada sin presión. El <b>escalonado</b> tiene una segunda cara más baja que pisa la punta contra el cuerpo, de modo que el gancho también queda sujeto por su punta.</p>
+    <p>En el simulador: menú <i>Electrodo y barra → Tipo de electrodo</i>, o los casos de <i>Calibre grueso</i>. En el modelo, la corriente se reparte entre las dos caras. El escalonado necesita bastante más consigna (≈ 6.2 kA contra ≈ 4.3 kA con 14 AWG y 2 alambres). Su ganancia es mecánica: la punta queda presionada contra el cuerpo durante la soldadura. En el modelo la punta solo llega a unirse cerca de quemar. Este caso no está calibrado: úsalo para entender, no para fijar parámetros.</p></div>
+    <div class="tbl-wrap card"><table>
+      <thead><tr><th>Punto a cuidar</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td>Altura del escalón</td><td>Debe coincidir con la altura de la punta apoyada: diámetro de alambre + esmalte. Cada calibre necesita su electrodo.</td></tr>
+        <tr><td>Posición del escalón</td><td>Si cae sobre la parte inclinada del gancho en vez de la punta plana, no hace contacto o deforma el gancho.</td></tr>
+        <tr><td>Reparto de corriente</td><td>Las dos caras están en paralelo: la que tenga mejor contacto se lleva más corriente y más calor.</td></tr>
+        <tr><td>Desgaste disparejo</td><td>Las dos caras se gastan distinto; al rectificar hay que conservar la altura del escalón, no solo aplanar.</td></tr>
+      </tbody></table></div>
+  </div>
 </section>
 
 <!-- TIERRA -->

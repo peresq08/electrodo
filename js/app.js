@@ -9,13 +9,13 @@
   var AWG = { 14: 1.628, 15: 1.450, 16: 1.291, 17: 1.150, 18: 1.024, 19: 0.912, 20: 0.812, 21: 0.723, 22: 0.644 };
   var P = Object.assign({}, S.DEFAULTS, { nWires: 3, awg: 17 });
   var GEO0 = { awg: 17, thick: 1.0, hookLen: 8.5, elecX: 0, faceW: 4.5 };
-  var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'closeAngle', 'elecX', 'faceW', 'faceDepth'];
+  var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'closeAngle', 'elecType', 'stepLen', 'elecX', 'faceW', 'faceDepth'];
   var PROG = PU.defaultProgram();
   function pw(o) { return S.pulseOf(Object.assign({ on: true, ctrl: 'SCD', puls: 1, intv: 0 }, o)); }
   function prog(we1, we2, we3, cool1, cool2, hold) { return { we: [we1 ? pw(we1) : S.pulseOf({}), we2 ? pw(we2) : S.pulseOf({}), we3 ? pw(we3) : S.pulseOf({})], cool1: cool1 || 0, cool2: cool2 || 0, hold: hold == null ? 250 : hold }; }
   var T3 = { uf: 3.15, heat: 4.0, dl: 2.6, up: 240, weld: 450, down: 40 };
   var E_T3 = S.energyOf(prog(T3)).total;
-  var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, closeAngle: 60, elecX: 0, faceW: 4.5 };
+  var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, closeAngle: 60, elecType: 'flat', stepLen: 2.0, elecX: 0, faceW: 4.5 };
 
   var AWG_OPTS = [[14, '14 AWG · Ø1.63'], [15, '15 AWG · Ø1.45'], [16, '16 AWG · Ø1.29'], [17, '17 AWG · Ø1.15'], [18, '18 AWG · Ø1.02'], [19, '19 AWG · Ø0.91'], [20, '20 AWG · Ø0.81'], [21, '21 AWG · Ø0.72'], [22, '22 AWG · Ø0.64']];
   var groups = [
@@ -27,6 +27,8 @@
       { k: 'closeAngle', label: '<abbr title="Ángulo con el que la tira baja del último alambre hacia el cuerpo">Ángulo de bajada</abbr> (°)', min: 30, max: 85, step: 1, d: 0 }
     ] },
     { name: 'Electrodo y barra', id: 'gElec', geo: true, items: [
+      { k: 'elecType', type: 'seg', opts: [['flat', 'Plano'], ['step', 'Escalonado']], label: '<abbr title="Escalonado: una cara pisa los alambres y otra, más baja, pisa la punta del gancho apoyada sobre el cuerpo">Tipo de electrodo</abbr>' },
+      { k: 'stepLen', label: '<abbr title="Largo de la cara baja del escalón, sobre la punta apoyada">Largo del escalón</abbr> (mm)', min: 0.5, max: 4, step: 0.1, d: 1 },
       { k: 'elecX', label: '<abbr title="Corrimiento del centro del electrodo a lo largo del gancho: negativo hacia el doblez, positivo hacia el cierre">Posición</abbr> (mm)', min: -2.5, max: 2.5, step: 0.05, d: 2 },
       { k: 'faceW', label: '<abbr title="Largo de la cara a lo largo del gancho">Largo de cara</abbr> (mm)', min: 2, max: 8, step: 0.1, d: 1 },
       { k: 'faceDepth', label: '<abbr title="Ancho de la cara a lo ancho del gancho (el gancho mide 2 mm)">Ancho de cara</abbr> (mm)', min: 1.5, max: 3.6, step: 0.05, d: 2 },
@@ -59,6 +61,8 @@
     { grp: 'Electrodo', name: 'Electrodo corrido hacia el cierre', p: { nWires: 3, elecX: 1.5 }, g: prog(T3) },
     { grp: 'Electrodo', name: 'Electrodo corrido hacia el doblez', p: { nWires: 3, elecX: -1.5 }, g: prog(T3) },
     { grp: 'Electrodo', name: 'Cara angosta', p: { nWires: 3, faceDepth: 1.75 }, g: prog({ uf: 3.1, heat: 3.9, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo plano', p: { nWires: 2, awg: 14 }, g: prog({ uf: 3.4, heat: 4.3, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo escalonado', p: { nWires: 2, awg: 14, elecType: 'step', stepLen: 2.0 }, g: prog({ uf: 4.9, heat: 6.2, dl: 3.0, up: 240, weld: 450, down: 40 }) },
     { grp: 'Control', name: 'Modo PWR', p: { nWires: 3 }, g: prog(Object.assign({ ctrl: 'PWR' }, T3)) }
   ];
 
@@ -136,7 +140,7 @@
   function groupSummaries() {
     var t = $('gTermSum'), e = $('gElecSum');
     if (t) t.textContent = P.nWires + ' × ' + P.awg + ' AWG · ' + (+P.thick).toFixed(2) + ' mm · gancho ' + (+P.hookLen).toFixed(1);
-    if (e) e.textContent = (P.elecX ? (P.elecX > 0 ? '+' : '') + (+P.elecX).toFixed(2) + ' mm · ' : '') + (+P.faceW).toFixed(1) + '×' + (+P.faceDepth).toFixed(2) + (P.wear > 0 ? ' · cav ' + (+P.wear).toFixed(2) : '');
+    if (e) e.textContent = (P.elecType === 'step' ? 'escalonado · ' : '') + (P.elecX ? (P.elecX > 0 ? '+' : '') + (+P.elecX).toFixed(2) + ' mm · ' : '') + (+P.faceW).toFixed(1) + '×' + (+P.faceDepth).toFixed(2) + (P.wear > 0 ? ' · cav ' + (+P.wear).toFixed(2) : '');
   }
   function sync() {
     Object.keys(inputs).forEach(function (k) {
@@ -154,7 +158,7 @@
     calibBox(); groupSummaries();
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
-  function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60; }
+  function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60 && P.elecType === 'flat'; }
   var geoTimer = null;
   function geoPreview(k) {
     if (GEO_KEYS.concat(['wear', 'gndCu']).indexOf(k) < 0) return;
@@ -352,7 +356,7 @@
     var s = cur.summary, r = ref && ref.summary, v = cur.verdict, cp = cur.params;
     var vd = $('verdict'); vd.className = 'verdict ' + v.cls;
     vd.innerHTML = '<div class="big">' + v.code + '</div><div><b>' + v.text + '</b><div class="muted" style="margin-top:4px">' +
-      cp.nWires + ' alambres' + (cp.awg !== 17 ? ' ' + cp.awg + ' AWG' : '') + (cp.thick !== 1 ? ' · terminal ' + cp.thick.toFixed(2) + ' mm' : '') + (cp.hookLen !== 8.5 ? ' · gancho ' + cp.hookLen.toFixed(1) + ' mm' : '') + (cp.elecX ? ' · electrodo corrido ' + (cp.elecX > 0 ? '+' : '') + cp.elecX.toFixed(2) + ' mm' : '') + ' · ' + PU.describe(cp) + (cp.wear > 0 ? ' · cavidad ' + cp.wear.toFixed(2) + ' mm' : '') + (cp.iCal !== 1 ? ' · calibrado ×' + cp.iCal.toFixed(3) : '') + '</div></div>';
+      cp.nWires + ' alambres' + (cp.awg !== 17 ? ' ' + cp.awg + ' AWG' : '') + (cp.thick !== 1 ? ' · terminal ' + cp.thick.toFixed(2) + ' mm' : '') + (cp.hookLen !== 8.5 ? ' · gancho ' + cp.hookLen.toFixed(1) + ' mm' : '') + (cp.elecType === 'step' ? ' · electrodo escalonado' : '') + (cp.elecX ? ' · electrodo corrido ' + (cp.elecX > 0 ? '+' : '') + cp.elecX.toFixed(2) + ' mm' : '') + ' · ' + PU.describe(cp) + (cp.wear > 0 ? ' · cavidad ' + cp.wear.toFixed(2) + ' mm' : '') + (cp.iCal !== 1 ? ' · calibrado ×' + cp.iCal.toFixed(3) : '') + '</div></div>';
     var maxPulse = Math.max.apply(null, cur.series.map(function (o) { return o.pulse; }));
     var tEnd = s.tWeldEnd;
     $('metrics').innerHTML =

@@ -77,6 +77,30 @@
     fill(xE0, xE1, yT1, yT1 + dx, MAT.C_EL);
     fill(xE0, xE1, yT1 + dx, domH, MAT.W_EL);
     fill(xE0, xE1, yT1 + dx, yT1 + dx + p.tipLen * mm, MAT.W_TIP);
+    // electrodo escalonado: una cara pisa los alambres y otra, más baja, pisa la punta apoyada
+    var step = null;
+    if (p.elecType === 'step' && reaches && flat > 0) {
+      var xB0 = xS + (gap + tc - t) / tanT + dx + (p.elecX || 0) * mm;
+      var xB1 = Math.min(xF1, xB0 + (p.stepLen || 2) * mm), yLow = yB1 + t;
+      if (xB1 > xB0 + 2 * dx) {
+        step = { x0: xB0, x1: xB1, y0: yLow, h: yT1 - yLow };
+        var added = [];
+        var fillAir = function (x0, x1, y0, y1, m) {
+          for (var j = Math.max(0, Math.floor(y0 / dx + 1e-9)); j < Math.min(NY, Math.ceil(y1 / dx - 1e-9)); j++)
+            for (var i = Math.max(0, Math.floor(x0 / dx + 1e-9)); i < Math.min(NX, Math.ceil(x1 / dx - 1e-9)); i++)
+              if (mat[j * NX + i] === MAT.AIR) { mat[j * NX + i] = m; added.push(j * NX + i); }
+        };
+        fillAir(Math.min(xE0, xB0), Math.max(xE1, xB1), yT1 + dx, domH, MAT.W_EL);     // cuerpo común
+        fillAir(xB0, xB1, yLow + dx, yT1 + dx, MAT.W_TIP);                             // escalón
+        fillAir(xB0, xB1, yLow, yLow + dx, MAT.C_EL);                                  // cara baja
+        // toda celda de tungsteno que toque cobre lo hace a través de una capa de contacto
+        added.forEach(function (c) {
+          var m = mat[c]; if (m !== MAT.W_EL && m !== MAT.W_TIP) return;
+          var nb = [c - 1, c + 1, c - NX];
+          for (var q = 0; q < nb.length; q++) { var mm2 = mat[nb[q]]; if (mm2 === MAT.CU_TERM || mm2 === MAT.CLOSE || mm2 === MAT.TIPC) { mat[c] = MAT.C_EL; break; } }
+        });
+      }
+    }
     for (var i2 = 0; i2 < NX; i2++) {
       var jg = Math.round(yG1 / dx) - 1;
       if (mat[jg * NX + i2] === MAT.GROUND && mat[(jg + 1) * NX + i2] === MAT.CU_TERM) mat[jg * NX + i2] = MAT.C_GND;
@@ -84,7 +108,7 @@
     var xC0 = xF0, xC1 = xF0 + Math.max(closeLen, dx);
     return {
       NX: NX, NY: NY, dx: dx, mat: mat,
-      info: { xL: xL, xT1: xT1, xS: xS, xF0: xF0, xF1: xF1, theta: th, reaches: reaches, slopeLen: slopeLen, flat: flat, closeLen: closeLen, xW0: xW0, xW1: xW1, yWc: yWc, ro: ro, xC0: xC0, xC1: xC1, yB1: yB1, yT0: yT0, yT1: yT1, xE0: xE0, xE1: xE1, free: free, closeW: closeLen }
+      info: { xL: xL, xT1: xT1, xS: xS, xF0: xF0, xF1: xF1, theta: th, reaches: reaches, slopeLen: slopeLen, flat: flat, closeLen: closeLen, xW0: xW0, xW1: xW1, yWc: yWc, ro: ro, xC0: xC0, xC1: xC1, yB1: yB1, yT0: yT0, yT1: yT1, xE0: xE0, xE1: xE1, step: step, free: free, closeW: closeLen }
     };
   }
 
@@ -381,7 +405,7 @@
   var DEFAULTS = {
     dx: 0.125e-3, domainW: 10.5e-3, domainH: 8e-3, dt: 2.5e-5, elecEvery: 0.001, frameEvery: 0.01,
     nWires: 3, wireDiam: 1.15, wireCore: 0.55, enamel: 0.075, thick: 1.0, hookW: 2.0, hookLen: 8.5, innerR: 0.65, closeFrac: 0.35,
-    faceW: 4.5, elecX: 0, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
+    faceW: 4.5, elecX: 0, elecType: 'flat', stepLen: 2.0, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
     fEnamel: 8, fClose: 25, fElec: 2.5, Rext: 0.16, Rref: 0.28, Imax: 9.9, Vmax: 2.83, wear: 0, faceDepth: 3.0, tipLen: 0.75, forceLoss: 0.8, zLoss: 14, gndCu: false, iCal: 1,
     mode: 'SCD', pre: false, preT: 150, preI: 2.8, cool: 30, up: 240, weld: 450, down: 40, uf: 3.15, heat: 4.0, dl: 2.6, hold: 300
   };
@@ -393,7 +417,7 @@
     var bm = sm.bondMin != null ? sm.bondMin : sm.bondW;
     if (bm < 0.5) return { code: 'DÉBIL', cls: 'warn', text: 'Esmalte removido pero unión incompleta: el alambre más débil está unido ' + Math.round(bm * 100) + '% (promedio ' + Math.round(sm.bondW * 100) + '%). Pasa resistencia, pero puede abrir en jalón o con vibración.' };
     if (sm.melt > 0.3) return { code: 'OK (caliente)', cls: 'warn', text: 'Unión completa con fusión superficial bajo el electrodo: poco margen hacia quemado y más desgaste.' };
-    return { code: 'OK', cls: 'ok', text: 'Esmalte removido y todos los alambres unidos, sin cobre fundido.' + (sm.bondC != null && sm.bondC < 0.5 ? ' La punta del gancho solo está apoyada (sin unir), lo normal en fusing.' : '') };
+    return { code: 'OK', cls: 'ok', text: 'Esmalte removido y todos los alambres unidos, sin cobre fundido.' + (sm.bondC != null ? (sm.bondC < 0.5 ? ' La punta del gancho solo está apoyada (sin unir).' : ' La punta del gancho también quedó unida al cuerpo.') : '') };
   }
   // orden de clases para calibración: 0 fría, 1 débil, 2 ok, 3 ok caliente, 4 quemada
   var CLASS_ORDER = { 'ABIERTA': 0, 'FRÍA': 0, 'DÉBIL': 1, 'OK': 2, 'OK (caliente)': 3, 'QUEMADA': 4 };

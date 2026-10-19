@@ -84,6 +84,12 @@ function build(p) {
     group.add(box(xEc - hx, xEc + hx, yE - cav, yE, zIn, fd / 2, MATS.w));
     group.add(box(xEc - hx, xEc + hx, yE - cav, yE, -fd / 2, -zIn, MATS.w));
   }
+  // escalón del electrodo escalonado
+  if (inf.step) {
+    const st = inf.step, x0 = st.x0 * k, x1 = st.x1 * k, y0 = st.y0 * k;
+    group.add(box(Math.min(xEc - hx, x0), Math.max(xEc + hx, x1), yE, yE + H, -fd / 2, fd / 2, MATS.w));
+    group.add(box(x0, x1, y0, yE, -fd / 2, fd / 2, MATS.w));
+  }
   // centrar
   const c = new THREE.Vector3((xL + xT1) / 2, yT1 / 2 + 1, 0);
   group.position.set(-c.x, -c.y, 0);
@@ -124,7 +130,7 @@ window.Geo3D = {
   },
   update(p) {
     if (!renderer) init();
-    const key = JSON.stringify([p.nWires, p.wireCore, p.wireDiam, p.thick, p.hookLen, p.elecX, p.faceW, p.faceDepth, p.wear, p.gndCu, p.closeAngle]);
+    const key = JSON.stringify([p.nWires, p.wireCore, p.wireDiam, p.thick, p.hookLen, p.elecX, p.faceW, p.faceDepth, p.wear, p.gndCu, p.closeAngle, p.elecType, p.stepLen]);
     if (key === lastKey) return; lastKey = key;
     build(p);
   },
