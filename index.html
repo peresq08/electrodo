@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electrodo · Laboratorio de fusing</title>
+<meta name="description" content="Simulador electro-térmico y guía técnica de fusing (hot staking) de terminales de cobre con alambre esmaltado: modos de control, energía, electrodo, barra de tierra y método para escoger parámetros.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23b5622d'/%3E%3Cpath d='M4 4h8v3H9v5H7V7H4z' fill='%23fff'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="#inicio"><i></i>Electrodo</a>
+  <nav class="nav" id="nav">
+    <a href="#proceso">Proceso</a>
+    <a href="#simulador">Simulador</a>
+    <a href="#ventana">Ventana</a>
+    <a href="#pulso">Pulso</a>
+    <a href="#calor">Calor</a>
+    <a href="#modos">Modos</a>
+    <a href="#electrodo">Electrodo</a>
+    <a href="#tierra">Barra de tierra</a>
+    <a href="#controlador">Controlador</a>
+    <a href="#parametros">Parámetros</a>
+    <a href="#metodo">Método</a>
+    <a href="#modelo">El modelo</a>
+  </nav>
+  <button class="theme-btn" id="themeBtn" type="button" title="Cambiar tema">◐</button>
+</div></header>
+
+<main>
+
+<!-- INICIO -->
+<section class="sec" id="inicio">
+  <div class="hero">
+    <div>
+      <div class="kicker">Laboratorio de fusing · hot staking</div>
+      <h1>Qué pasa dentro de la terminal cuando pasan 4 000 amperes</h1>
+      <p class="lead">Una guía técnica e interactiva del proceso de fusing de terminales de cobre con alambre magneto esmaltado. Tiene un simulador electro-térmico del corte del gancho, mapas de ventana de proceso, el efecto de cada modo de control, la mecánica del desgaste del electrodo y un método para escoger parámetros con datos.</p>
+      <div class="btns" style="margin-top:14px">
+        <a class="btn" href="#simulador" style="text-decoration:none">Abrir el simulador</a>
+        <a class="btn ghost" href="#parametros" style="text-decoration:none">Cómo escoger parámetros</a>
+      </div>
+      <div class="disclaimer"><b>Modelo educativo.</b> Las simulaciones resuelven física real (conducción de corriente y de calor, resistividad que sube con la temperatura, calor latente del cobre), pero los coeficientes de contacto y de pérdida están ajustados a mano para reproducir tendencias observadas, no medidos. Sirven para entender y comparar escenarios, no para fijar parámetros de producción sin validar.</div>
+    </div>
+    <div class="facts">
+      <div class="fact"><b>~3%</b><span>de la energía eléctrica termina como calor útil en la unión; el resto se va al electrodo, la barra y el agua.</span></div>
+      <div class="fact"><b>+15%</b><span>de calor necesita una terminal de 3 alambres respecto a una de 2, por la masa de cobre extra.</span></div>
+      <div class="fact"><b>~5×</b><span>sube la resistencia del tungsteno entre 20 °C y 1000 °C. En corriente constante, más calor conforme se calienta.</span></div>
+      <div class="fact"><b>~5%</b><span>de corriente separa una unión débil de una quemada en el modelo. La ventana es angosta: por eso el método importa.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROCESO -->
+<section class="sec" id="proceso">
+  <div class="kicker">01 · Proceso</div>
+  <h2>Anatomía de una unión de fusing</h2>
+  <p class="lead">El electrodo de tungsteno presiona el gancho de la terminal contra los alambres y la barra de tierra. La corriente pasa del electrodo al gancho y del cuerpo de la terminal a la barra. El tungsteno, que es mucho más resistivo que el cobre, se calienta y le pasa el calor al gancho: el esmalte se carboniza, se desplaza por la presión, y el cobre se une por forja en caliente, sin fundirse.</p>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card">
+      <h3>Corte transversal (perpendicular a los alambres)</h3>
+      <canvas id="anat" width="840" height="640" style="width:100%;border-radius:8px;background:#0e1013"></canvas>
+      <div class="chart-legend" id="anatLegend"></div>
+      <p class="muted" style="font-size:12.5px;margin-top:6px">Pasa el cursor sobre la figura para ver cada material. Esta misma malla (celdas de 0.125 mm) es la que resuelve el simulador.</p>
+    </div>
+    <div class="stack">
+      <div class="steps">
+        <div class="step"><div><h3>Contacto y presión (SQD, SQZ)</h3><p>El servo baja el electrodo y cierra el gancho mecánicamente. Sin corriente. La fuerza define la resistencia de contacto inicial.</p></div></div>
+        <div class="step"><div><h3>Calentamiento (UP)</h3><p>La corriente sube de UF a HEAT. El calor nace sobre todo en la punta del electrodo y en el contacto electrodo-gancho, y viaja hacia abajo por conducción.</p></div></div>
+        <div class="step"><div><h3>Esmalte (≈ 450–550 °C)</h3><p>La poliamida-imida o el poliéster del esmalte se descompone y la presión lo expulsa de entre el gancho y los alambres. Mientras quede esmalte, el alambre no conduce ni se une.</p></div></div>
+        <div class="step"><div><h3>Unión (≈ 700–950 °C)</h3><p>Cobre limpio contra cobre a alta temperatura y presión: difusión y forja. El cierre del gancho contra el cuerpo también tiene que unirse para que la terminal no se abra.</p></div></div>
+        <div class="step"><div><h3>Enfriamiento (DOWN, HOLD)</h3><p>La rampa de bajada evita el choque térmico y el HOLD mantiene presión mientras la unión solidifica su estructura. Si el electrodo sube caliente, puede despegar el gancho.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIMULADOR -->
+<section class="sec" id="simulador">
+  <div class="kicker">02 · Simulador</div>
+  <h2>Simulador electro-térmico 2D</h2>
+  <p class="lead">Cada milisegundo se resuelve la distribución de corriente en el corte (∇·σ∇φ = 0) y la ecuación de calor con la generación Joule q = σ|∇φ|². Las propiedades cambian con la temperatura, el esmalte se elimina al calentarse y las interfaces se unen por encima de la temperatura de unión. Escoge un caso o mueve los parámetros y presiona <b>Simular</b>.</p>
+  <div class="sim" style="margin-top:14px">
+    <div class="card controls" id="simControls"></div>
+    <div class="viewer">
+      <div class="verdict" id="verdict"><div class="big">—</div><div><b>Sin simular</b><div class="muted">Corre un caso para ver el resultado.</div></div></div>
+      <div class="card">
+        <div class="heat-top">
+          <div class="seg layer-seg" id="layerSeg">
+            <button data-l="T" class="on" type="button">Temperatura</button>
+            <button data-l="burn" type="button">Esmalte</button>
+            <button data-l="bond" type="button">Unión</button>
+            <button data-l="mat" type="button">Materiales</button>
+          </div>
+          <div class="btns"><button class="btn ghost" id="playBtn" type="button">▶ Reproducir</button></div>
+        </div>
+        <div class="heat-wrap"><canvas id="heat" width="840" height="640"></canvas><div class="hover-read" id="hoverRead"></div></div>
+        <div class="scrub"><input type="range" id="scrub" min="0" max="0" value="0"><span class="mono" id="scrubT">0 ms</span></div>
+        <div class="legend" id="heatLegend"></div>
+      </div>
+      <div class="metrics" id="metrics"></div>
+      <div class="grid2">
+        <div class="card"><h3>Corriente y consigna</h3><svg class="chart" id="chI" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgI"></div></div>
+        <div class="card"><h3>Temperatura en las sondas</h3><svg class="chart" id="chT" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgT"></div></div>
+        <div class="card"><h3>Resistencia y potencia</h3><svg class="chart" id="chR" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgR"></div></div>
+        <div class="card"><h3>Progreso: esmalte y uniones</h3><svg class="chart" id="chB" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgB"></div></div>
+      </div>
+      <div class="note"><b>Cómo leerlo.</b> Las sondas están en: el centro del alambre de en medio (el último en calentarse), la interfaz gancho-alambre, la zona de cierre del gancho contra el cuerpo, y la punta del electrodo. Usa <b>Fijar como referencia</b> para comparar dos casos: la referencia queda punteada en las gráficas.</div>
+    </div>
+  </div>
+</section>
+
+<!-- VENTANA -->
+<section class="sec" id="ventana">
+  <div class="kicker">03 · Ventana de proceso</div>
+  <h2>Mapa HEAT × WELD calculado con el simulador</h2>
+  <p class="lead">Cada celda es una corrida completa del simulador (270 en total, precalculadas). Muestra lo que el DOE busca encontrar en la máquina: dónde está la región buena y qué tan ancha es. Haz clic en una celda para cargarla en el simulador.</p>
+  <div class="grid2" style="grid-template-columns: 1.5fr 1fr; margin-top:12px">
+    <div class="card">
+      <div class="heat-top"><div class="seg" id="wSeg">
+        <button data-k="w2" class="on" type="button">2 alambres</button>
+        <button data-k="w3" type="button">3 alambres</button>
+        <button data-k="w3gastado" type="button">3 alambres · electrodo gastado</button>
+      </div></div>
+      <div id="wmap" class="wmap"></div>
+      <div class="wkey">
+        <span style="--c:#8fb7dd">Fría (esmalte sin remover)</span>
+        <span style="--c:#f1d27a">Débil (unión incompleta)</span>
+        <span style="--c:#7cc795">OK</span>
+        <span style="--c:#c9dd7f">OK con fusión superficial</span>
+        <span style="--c:#e9877b">Quemada</span>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card" id="wInfo"><h3>Selecciona una celda</h3><p class="muted">Verás el detalle de esa corrida.</p></div>
+      <div class="note"><b>Lo que enseña el mapa.</b> (1) Con 3 alambres la región OK se corre a la derecha y se angosta: misma corriente que una de 2 alambres no alcanza. (2) Con electrodo gastado toda la ventana se corre hacia más energía: eso es lo que el técnico "compensa" subiendo corriente. (3) La ventana es angosta: 0.1–0.2 kA entre débil y quemada (≈ 3–5%). (4) En este modelo, los pulsos cortos con más corriente dan una ventana igual o algo más ancha que los largos, porque en menos tiempo se pierde menos calor hacia el electrodo, la barra y el alambre. En la máquina, en cambio, un pulso corto y fuerte castiga más la punta. Esa es justo la pregunta que el experimento HEAT × WELD debe contestar con datos.</div>
+      <div class="note">Las corridas usan UF = 0.79·HEAT, UP = 53% de WELD, DOWN 40 ms a 2.6 kA y HOLD 150 ms.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PULSO -->
+<section class="sec" id="pulso">
+  <div class="kicker">04 · Forma del pulso</div>
+  <h2>Editor de pulso y energía I²t</h2>
+  <p class="lead">En el controlador, WELD es el tiempo total del pulso e <b>incluye</b> UP y DOWN. La meseta a HEAT dura WELD − UP − DOWN. Si UP + DOWN ≥ WELD aparece E-10. La energía relativa del pulso se calcula integrando I² en cada tramo.</p>
+  <div class="grid2" style="grid-template-columns: 1fr 1.4fr; margin-top:12px">
+    <div class="card" id="pulseCtl"></div>
+    <div class="card">
+      <svg class="chart" id="pulsePlot" viewBox="0 0 620 260"></svg>
+      <div class="kpi-row" id="pulseOut" style="margin-top:8px"></div>
+      <div class="formula" style="margin-top:10px">I²t = UP/3·(UF² + UF·H + H²) + H²·(WELD − UP − DOWN) + DOWN/3·(H² + H·DL + DL²)</div>
+    </div>
+  </div>
+</section>
+
+<!-- CALOR -->
+<section class="sec" id="calor">
+  <div class="kicker">05 · Cálculos de calor</div>
+  <h2>Presupuesto térmico de la unión</h2>
+  <p class="lead">Cuánto calor necesita el cobre de la unión para llegar a temperatura (Q = m·c·ΔT), cuánto entrega la fuente (V·I·t) y qué tan lejos viaja el calor en el tiempo del pulso (√(α·t)). Los valores por defecto son de un gancho de 1 mm × 2 mm con alambre 17 AWG.</p>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card" id="heatCtl"></div>
+    <div class="stack">
+      <div class="card"><div class="kpi-row" id="heatOut"></div></div>
+      <div class="card"><h3>Distancia que viaja el calor en cobre</h3><svg class="chart" id="diffPlot" viewBox="0 0 520 200"></svg>
+        <p class="muted" style="font-size:13px">Con α(Cu) ≈ 1.1×10⁻⁴ m²/s, en 100 ms el calor ya cruzó ~3 mm: el alambre de 1.15 mm se iguala en temperatura en ~3 ms. El esmalte (≈ 37 µm, k ≈ 0.2 W/m·K) tarda ~15 ms. Por eso un "pulso de remojo" largo no es necesario solo para igualar temperatura: lo que limita es retirar el esmalte y cerrar el gancho.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- MODOS -->
+<section class="sec" id="modos">
+  <div class="kicker">06 · Modos de control</div>
+  <h2>Qué hace la fuente cuando cambia la resistencia</h2>
+  <p class="lead">La fuente inverter regula el ancho de pulso del primario (PWM a 600–3000 Hz) para que la variable de control llegue a la consigna. Lo que cambia entre modos es <b>qué variable</b> se mantiene constante. Mueve la resistencia y observa corriente, voltaje y potencia.</p>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card">
+      <div class="row"><label>Resistencia medida entre electrodos</label><input type="range" id="mR" min="0.12" max="0.45" step="0.001" value="0.217"><output id="mRv">0.217 mΩ</output></div>
+      <div class="row"><label>Consigna equivalente (a R ref = 0.217 mΩ)</label><input type="range" id="mI" min="3" max="5.5" step="0.05" value="4.2"><output id="mIv">4.20 kA</output></div>
+      <div class="presets" style="margin:6px 0 10px">
+        <button class="chip" type="button" data-r="0.17">Electrodo gastado (más área)</button>
+        <button class="chip" type="button" data-r="0.217">Referencia</button>
+        <button class="chip" type="button" data-r="0.30">Unión caliente / esmalte</button>
+        <button class="chip" type="button" data-r="0.40">Contacto pobre</button>
+      </div>
+      <svg class="chart" id="modePlot" viewBox="0 0 520 250"></svg>
+      <div class="chart-legend"><span style="--c:var(--cu)">SCD · corriente constante</span><span style="--c:var(--blue)">PWR · potencia constante</span><span style="--c:var(--violet)">VLT · voltaje constante</span></div>
+    </div>
+    <div class="card"><div class="tbl-wrap" id="modeTable"></div>
+      <div class="note" style="margin-top:10px"><b>La regla.</b> Calor = I²·R. Con SCD el calor es proporcional a R: si R baja (electrodo gastado, más área), el calor baja. Con PWR el calor se mantiene. Con VLT el calor es V²/R: si R baja, el calor sube. Dentro de una misma soldadura pasa al revés: R sube con la temperatura, así que SCD se acelera (retroalimentación positiva) y PWR/VLT se frenan solos.</div>
+    </div>
+  </div>
+  <h3 style="margin-top:22px">Los seis modos del CTRL</h3>
+  <div class="tbl-wrap card"><table>
+    <thead><tr><th>Pantalla</th><th>Modo</th><th>Mide</th><th>Para qué sirve</th><th>En fusing</th></tr></thead>
+    <tbody>
+      <tr><td><code>PRI</code></td><td>Corriente constante primaria (RMS)</td><td>Corriente del primario × relación de vueltas</td><td>Cuando no se puede tener toroide en el secundario (robots)</td><td>No: ignora pérdidas del transformador</td></tr>
+      <tr><td><code>SCD</code></td><td>Corriente constante secundaria (RMS)</td><td>Toroide en el secundario</td><td>El de uso general; repetible pieza a pieza</td><td>Estándar. Sensible al desgaste: área ↑ → calor ↓</td></tr>
+      <tr><td><code>PWR</code></td><td>Potencia constante secundaria</td><td>Toroide + cable de voltaje entre electrodos</td><td>Mantener el calor aunque cambie la pieza; reduce expulsión inicial</td><td>Candidato fuerte para compensar el desgaste del electrodo</td></tr>
+      <tr><td><code>PEAK</code></td><td>Pico de corriente primaria</td><td>Sensor interno, limita el pico</td><td>Metales disímiles, subida rápida</td><td>No; usa PULSE LIMIT y VOLT COMP.</td></tr>
+      <tr><td><code>VLT</code></td><td>Voltaje constante secundario</td><td>Cable de voltaje entre electrodos</td><td>Piezas con resistencia de contacto alta: alambre cruzado, esmaltado, proyección</td><td>Útil al inicio (esmalte); con electrodo gastado sobrecalienta</td></tr>
+      <tr><td><code>FIX</code></td><td>Fase constante</td><td>Nada (lazo abierto)</td><td>Pruebas del equipo</td><td>No</td></tr>
+    </tbody></table></div>
+</section>
+
+<!-- ELECTRODO -->
+<section class="sec" id="electrodo">
+  <div class="kicker">07 · Electrodo</div>
+  <h2>Cómo se gasta el electrodo y qué hacer al respecto</h2>
+  <p class="lead">El tungsteno no se "quema": a cada golpe, con la punta caliente y bajo presión, se deforma y toma la <b>forma negativa</b> de la terminal. La cavidad abraza los flancos del gancho y reparte la corriente en más área. Menos densidad de corriente y menos presión dan uniones frías, y la reacción natural (subir corriente) acelera el desgaste.</p>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card">
+      <h3>Punta del electrodo vista de frente (a lo ancho del gancho)</h3>
+      <svg class="chart" id="wearSvg" viewBox="0 0 520 300"></svg>
+      <div class="row"><label>Profundidad de cavidad</label><input type="range" id="wC" min="0" max="0.8" step="0.02" value="0"><output id="wCv">0.00 mm</output></div>
+      <div class="row"><label>Ancho de cara del electrodo</label><input type="range" id="wF" min="1.6" max="3.6" step="0.05" value="3.0"><output id="wFv">3.00 mm</output></div>
+      <div class="row"><label>Control de fuerza</label><div class="seg" id="wMode"><button type="button" data-m="pos" class="on">Posición + resorte</button><button type="button" data-m="force">Fuerza</button></div><span></span></div>
+      <div class="kpi-row" id="wearOut" style="margin-top:8px"></div>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>El círculo vicioso</h3>
+        <svg class="chart" viewBox="0 0 520 250" id="cycleSvg"></svg>
+      </div>
+      <div class="note"><b>Control por posición.</b> Si el servo baja a una posición fija y la fuerza la da un resorte, cada décima de milímetro que el electrodo pierde (cavidad o rectificado) es compresión de resorte que se pierde: la fuerza cae sin que nadie lo vea. Por eso se calibra el gauge después de cada rectificado. Confirmar con mantenimiento si el lazo es de fuerza o de posición.</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px">Simulador de vida del electrodo</h3>
+  <p>Modelo de desgaste por golpe: la cavidad crece con la temperatura de la punta (más corriente, más rápido). La calidad se evalúa con un índice de calor en la unión. Compara cuatro estrategias a lo largo de los golpes, con electrodos que no se gastan todos igual.</p>
+  <div class="grid2" style="grid-template-columns: 330px 1fr">
+    <div class="card" id="lifeCtl"></div>
+    <div class="card">
+      <svg class="chart" id="lifePlot" viewBox="0 0 620 300"></svg>
+      <div class="chart-legend" id="lifeLegend"></div>
+      <div class="tbl-wrap" id="lifeTable" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px">Electrodo de cara angosta</h3>
+  <div class="grid2">
+    <div class="card"><p>Si la cara del electrodo es <b>más angosta que el gancho</b> (85–90% de su ancho), nunca toca los flancos: al gastarse no gana área lateral, la densidad de corriente se mantiene y la vida útil entre rectificados se alarga. Pruébalo en el simulador con el preset <i>Cara angosta</i>: concentra más el calor, así que necesita algo menos de corriente.</p></div>
+    <div class="tbl-wrap card"><table>
+      <thead><tr><th>Riesgo</th><th>Mitigación</th></tr></thead>
+      <tbody>
+        <tr><td>Contacto parcial si la terminal se desalinea</td><td>Medir la variación de posición; cara al 85–90%</td></tr>
+        <tr><td>Punta más caliente (más densidad de corriente)</td><td>Bajar corriente; termografía IR</td></tr>
+        <tr><td>Despostillado del tungsteno en secciones delgadas</td><td>Radios en las orillas</td></tr>
+        <tr><td>No cubre bien el cierre del gancho</td><td>Largo completo sobre la zona de cierre</td></tr>
+      </tbody></table></div>
+  </div>
+</section>
+
+<!-- TIERRA -->
+<section class="sec" id="tierra">
+  <div class="kicker">08 · Barra de tierra</div>
+  <h2>Barra de tierra (contra-electrodo)</h2>
+  <p class="lead">La barra cierra el circuito por el cuerpo de la terminal. No debería calentarse: su trabajo es conducir con poca resistencia y sacar calor. Cuando es de cobre y la sección es pequeña, se calienta, se ablanda y se deforma ("hongo"), y el cobre contra cobre se pega. <span class="tag warn">En estudio</span></p>
+  <div class="grid3" style="margin-top:12px">
+    <div class="card"><h3>Por qué falla</h3><ol style="margin:0;padding-left:18px"><li>El cobre recocido pierde dureza desde ~200–300 °C, muy por debajo de la temperatura de la unión.</li><li>Un cuello angosto concentra la corriente: calor I²R local.</li><li>Cu contra Cu a alta temperatura y presión se suelda por difusión: arranca material a cada ciclo.</li></ol></div>
+    <div class="card"><h3>Calor en la barra</h3><div class="row"><label>Sección del cuello (mm²)</label><input type="range" id="gA" min="2" max="30" step="0.5" value="6"><output id="gAv"></output></div>
+      <div class="row"><label>Material</label><select id="gM"><option value="cu">Cobre ETP</option><option value="cucrzr">Cu-Cr-Zr</option><option value="wcu">W-Cu 70/30</option><option value="mo">Molibdeno</option></select><span></span></div>
+      <div class="kpi-row" id="gOut"></div>
+      <p class="muted" style="font-size:12.5px;margin-top:8px">Aumento de temperatura adiabático en 5 mm de cuello durante un pulso de 450 ms a 4 kA. Es un límite superior: compara materiales y secciones.</p></div>
+    <div class="tbl-wrap card"><table>
+      <thead><tr><th>Opción</th><th>Ventaja</th><th>Riesgo</th></tr></thead>
+      <tbody>
+        <tr><td>Inserto W-Cu o Mo en la punta</td><td>No se pega, resiste calor; el cuerpo sigue en cobre</td><td>Unión del inserto</td></tr>
+        <tr><td>Cu-Cr-Zr (clase 2)</td><td>Mismo maquinado; dureza hasta ~500 °C</td><td>Se sigue pegando, menos</td></tr>
+        <tr><td>Cuello más grueso</td><td>Menos I²R local</td><td>Espacio disponible</td></tr>
+      </tbody></table></div>
+  </div>
+  <p class="muted" style="margin-top:8px">En el simulador puedes cambiar la barra entre tungsteno y cobre (grupo "Electrodo y barra") para ver cuánto calor se va hacia abajo.</p>
+</section>
+
+<!-- CONTROLADOR -->
+<section class="sec" id="controlador">
+  <div class="kicker">09 · Controlador</div>
+  <h2>Pantallas del programador (fuente inverter tipo IS-300A / MA-660A)</h2>
+  <p class="lead">Haz clic en cualquier campo de la pantalla para ver qué hace, su rango y cómo se usa en fusing. Los valores mostrados son de ejemplo.</p>
+  <div class="grid2" style="grid-template-columns: 1.3fr 1fr; margin-top:12px">
+    <div>
+      <div class="seg" id="lcdSeg" style="max-width:380px;margin-bottom:8px"><button type="button" data-s="s1" class="on">SCHEDULE (1)</button><button type="button" data-s="s2">SCHEDULE (2)</button><button type="button" data-s="mon">MONITOR</button></div>
+      <div class="lcd" id="lcd"></div>
+    </div>
+    <div class="card field-help" id="lcdHelp"><h3>Selecciona un campo</h3><p class="muted">Cada campo tiene su explicación.</p></div>
+  </div>
+
+  <h3 style="margin-top:26px">Funciones de calidad que conviene usar</h3>
+  <div class="tbl-wrap card"><table>
+    <thead><tr><th>Función</th><th>Qué hace</th><th>Cómo configurarla</th></tr></thead>
+    <tbody>
+      <tr><td>MONITOR SET</td><td>Límites alto/bajo de corriente, voltaje, potencia, tiempo y PULSE% por pulso; dispara NG</td><td>Media ± 3σ de 30 soldaduras buenas; primero CAUTION, luego ERROR. Con límites abiertos (999/0) no detecta nada.</td></tr>
+      <tr><td>STEPPER</td><td>Sube la consigna por conteo (hasta 9 pasos, 50–200%, FIXED o LINEAR); E-27 al terminar</td><td>Pasos definidos con el estudio de vida del electrodo; E-27 = rectificar + STEP RESET</td></tr>
+      <tr><td>PRECHECK</td><td>Pulso pequeño antes de soldar para medir resistencia</td><td>Detecta terminal mal asentada, alambre faltante o electrodo sin contacto</td></tr>
+      <tr><td>PROGRAM PROTECT</td><td>Bloquea cambios</td><td>Activar con control de cambios: los parámetros solo se mueven con datos</td></tr>
+      <tr><td>Contadores</td><td>Total y de buenas</td><td>Reiniciar en cada cambio/rectificado de electrodo: así se mide la vida</td></tr>
+      <tr><td>Salida de datos RS-232/485</td><td>I, V, P, PULSE% de cada soldadura</td><td>Registro para SPC y para ver la deriva por desgaste</td></tr>
+      <tr><td>Corte por desplazamiento</td><td>Con sensor de desplazamiento, corta la corriente al llegar a un hundimiento</td><td>Controla el cierre del gancho en lugar del tiempo</td></tr>
+    </tbody></table></div>
+
+  <h3 style="margin-top:22px">Errores frecuentes</h3>
+  <div class="tbl-wrap card"><table>
+    <thead><tr><th>Código</th><th>Significado</th><th>Causa típica en fusing</th></tr></thead>
+    <tbody>
+      <tr><td><code>E-07</code></td><td>Sin corriente</td><td>SQD o SQZ más cortos que la carrera del electrodo: la corriente arranca sin contacto. También puede salir en rampas aunque sí haya corriente.</td></tr>
+      <tr><td><code>E-08</code></td><td>Corriente fuera de los límites de MONITOR SET</td><td>Electrodo sucio o cable flojo. Solo dispara si los límites están configurados.</td></tr>
+      <tr><td><code>E-09</code></td><td>Ancho de pulso fuera de límite (PULSE)</td><td>La fuente está al límite: revisar pieza, electrodo y capacidad del transformador</td></tr>
+      <tr><td><code>E-10</code></td><td>Error de programa</td><td>UP + DOWN mayor que WELD; HEAT menor que UF o DL; rampas entre etapas sin COOL con modos distintos</td></tr>
+      <tr><td><code>E-11</code></td><td>Consigna fuera del rango</td><td>HEAT mayor que el máximo (o menor que el mínimo) del rango de corriente/voltaje/potencia</td></tr>
+      <tr><td><code>E-15</code></td><td>Falta de agua de enfriamiento</td><td>Flujo bajo en el interruptor de flujo: el electrodo se sobrecalienta y se gasta más rápido</td></tr>
+      <tr><td><code>E-18 / E-19</code></td><td>Voltaje / potencia fuera de los límites de MONITOR SET</td><td>El manual indica revisar electrodo sucio y <b>fuerza baja del electrodo</b>: justo los síntomas del desgaste</td></tr>
+      <tr><td><code>E-21</code></td><td>Sin voltaje entre electrodos</td><td>Cable de detección de voltaje desconectado (indispensable en PWR y VLT)</td></tr>
+      <tr><td><code>E-27</code></td><td>Fin del STEPPER</td><td>Rectificar o cambiar la punta y hacer STEP RESET</td></tr>
+    </tbody></table></div>
+</section>
+
+<!-- PARÁMETROS -->
+<section class="sec" id="parametros">
+  <div class="kicker">10 · Cómo escoger parámetros</div>
+  <h2>Del cálculo al set validado</h2>
+  <p class="lead">Los parámetros no se escogen moviendo HEAT hasta que "se vea bien". Se parte de un presupuesto de energía, se encuentran los límites, se optimiza con un DOE y se confirma. Cada paso usa una herramienta de esta página.</p>
+  <div class="steps" style="margin-top:12px">
+    <div class="step"><div><h3>Presupuesto de energía</h3><p>Calcula el calor que necesita cada terminal según su masa de cobre (sección <a href="#calor">Calor</a>). Una terminal con más alambres necesita más energía, no la misma corriente. Escala la energía, no la corriente: la corriente pesa al cuadrado.</p></div></div>
+    <div class="step"><div><h3>Forma del pulso</h3><p>UP de 40–60% del WELD para que el esmalte salga antes de llegar al pico; UF ≈ 75–80% de HEAT; DOWN corto a una corriente baja para no despegar. Revisa la regla E-10 en el <a href="#pulso">editor</a>.</p></div></div>
+    <div class="step"><div><h3>Límites (Fase 0)</h3><p>Barrido de un factor a la vez hasta encontrar fría y quemada en cada terminal. Define el rango del DOE: dentro de los límites, pero suficientemente separados para ver efecto.</p></div></div>
+    <div class="step"><div><h3>Medición confiable</h3><p>Gage R&R del medidor de resistencia antes del DOE. La resistencia detecta uniones abiertas, pero no uniones débiles: agrega una respuesta de fuerza (jalón) y corte transversal.</p></div></div>
+    <div class="step"><div><h3>DOE</h3><p>HEAT × WELD (3² o superficie de respuesta), aleatorizado, con bloques. Analiza cada terminal por separado. Busca la meseta: el punto donde la respuesta cambia poco aunque el parámetro varíe (robustez).</p></div></div>
+    <div class="step"><div><h3>Confirmación y límites del monitor</h3><p>Corre el set elegido contra el actual. Con 30 soldaduras buenas define los límites del MONITOR SET y el STEPPER según la vida del electrodo.</p></div></div>
+  </div>
+  <div class="grid3" style="margin-top:16px">
+    <div class="card"><h3>UP y DOWN</h3><p>En la industria se especifican en milisegundos, no en porcentaje, pero se diseñan como proporción del WELD. Rampa larga: menos expulsión y menos choque al electrodo, pero menos tiempo a HEAT. La energía de la rampa es ≈ 1/3·(UF² + UF·H + H²)·t: con UF = 0.79·H, una rampa entrega ~80% de lo que entregaría a HEAT.</p></div>
+    <div class="card"><h3>¿Uno o varios pulsos?</h3><p>Un segundo pulso a 0.5 kA durante 100 ms aporta &lt; 2% de la energía: no hace nada útil y alarga el ciclo. Un precalentamiento solo tiene sentido si separa físicamente "sacar esmalte" de "unir". Pruébalo en el simulador y luego con una prueba de equivalencia.</p></div>
+    <div class="card"><h3>Canales distintos para terminales distintas</h3><p>Si dos terminales tienen la misma geometría y número de alambres, pueden compartir parámetros; si una tiene más alambres o sale más fría por posición, necesita su propio canal. La evidencia es el DOE por terminal, no el promedio.</p></div>
+  </div>
+</section>
+
+<!-- MÉTODO -->
+<section class="sec" id="metodo">
+  <div class="kicker">11 · Método experimental</div>
+  <h2>Experimentos y plan de reacción</h2>
+  <div class="grid2" style="margin-top:12px">
+    <div class="tbl-wrap card"><table>
+      <thead><tr><th>Exp.</th><th>Pregunta</th><th>Diseño</th></tr></thead>
+      <tbody>
+        <tr><td>E1</td><td>¿El medidor de R distingue piezas?</td><td>Gage R&R: 10 piezas × 2 operadores × 3 lecturas; %GRR &lt; 10% de la tolerancia</td></tr>
+        <tr><td>E2</td><td>¿Los pulsos 2 y 3 de baja corriente aportan algo?</td><td>Equivalencia (TOST) con y sin, 10 + 10 en bloques ABBA</td></tr>
+        <tr><td>E3</td><td>¿Dónde está la ventana de energía?</td><td>Factorial 4 × 4 HEAT × WELD por terminal; respuesta: fuerza de jalón</td></tr>
+        <tr><td>E4</td><td>¿Importa la forma a energía constante?</td><td>2^(4−1) res. IV: precalentamiento, UF%, UP%, HOLD; HEAT recalculado para igualar I²t</td></tr>
+        <tr><td>E5</td><td>¿El set nuevo es mejor que el actual?</td><td>6 + 6 con ciclo térmico y ΔR</td></tr>
+        <tr><td>E7</td><td>¿Cómo cambia la unión con la vida del electrodo?</td><td>Seguimiento desde rectificado: V/I, PULSE%, cavidad y R cada 50 piezas</td></tr>
+        <tr><td>E8</td><td>¿Cara angosta y PWR alargan la vida?</td><td>Cara angosta vs actual × SCD vs PWR a lo largo de la vida</td></tr>
+      </tbody></table></div>
+    <div class="stack">
+      <div class="tbl-wrap card"><table>
+        <thead><tr><th>Medición</th><th>Detecta</th></tr></thead>
+        <tbody>
+          <tr><td>R entre terminales (4 hilos, corregida a 20 °C)</td><td>Unión abierta o fría</td></tr>
+          <tr><td>Fuerza con cubeta (kg × 9.81 = N)</td><td>Unión débil que pasa R</td></tr>
+          <tr><td>Corte transversal</td><td>Alambre central sin unir, esmalte atrapado</td></tr>
+          <tr><td>Hipot / surge</td><td>Esmalte dañado por exceso de calor</td></tr>
+          <tr><td>Ciclo térmico + ΔR</td><td>Uniones latentes que fallarían en campo</td></tr>
+        </tbody></table></div>
+      <div class="note"><b>Reglas del método.</b> Una pregunta por experimento. Criterio de aceptación escrito antes de correr. Orden aleatorio. Al comparar formas de pulso, igualar la energía. Confirmar siempre.</div>
+    </div>
+  </div>
+  <h3 style="margin-top:22px">Plan de reacción en piso</h3>
+  <div class="tbl-wrap card"><table>
+    <thead><tr><th>Síntoma</th><th>Revisa primero</th><th>Acción</th><th>No hacer</th></tr></thead>
+    <tbody>
+      <tr><td>R alta o terminal abierta</td><td>Conteo y cavidad del electrodo</td><td>Rectificar y STEP RESET</td><td>Subir corriente de un solo canal</td></tr>
+      <tr><td>Terminal o alambre quemado</td><td>Punta sucia, alineación</td><td>Limpiar, rectificar, alinear</td><td>Bajar corriente sin revisar</td></tr>
+      <tr><td>Rechazo por hipot o surge</td><td>Alambres vecinos dañados por calor</td><td>Separar y avisar a ingeniería</td><td>Seguir corriendo</td></tr>
+      <tr><td>Fallas mezcladas (frías y quemadas)</td><td>Chiller, aire, servo, alineación</td><td>Llamar a mantenimiento</td><td>Mover parámetros</td></tr>
+      <tr><td>Alarma del monitor</td><td>Pantalla MONITOR del canal</td><td>Separar pieza, revisar electrodo</td><td>Abrir los límites</td></tr>
+    </tbody></table></div>
+</section>
+
+<!-- MODELO -->
+<section class="sec" id="modelo">
+  <div class="kicker">12 · El modelo</div>
+  <h2>Qué resuelve el simulador y qué supone</h2>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card"><h3>Ecuaciones</h3>
+      <div class="formula">∇·(σ(T)∇φ) = 0 &nbsp;&nbsp; (SOR, cada 1 ms)</div>
+      <div class="formula" style="margin-top:6px">ρc·∂T/∂t = ∇·(k∇T) + σ|∇φ|² − G₃·k·(T − T₀)</div>
+      <div class="formula" style="margin-top:6px">ρ_Cu = 1.72×10⁻⁸·(1 + 0.0039·ΔT) &nbsp; ρ_W = 5.6×10⁻⁸·(1 + 0.0045·ΔT)</div>
+      <p style="margin-top:10px">Malla de 0.125 mm, paso de tiempo de 25 µs (explícito, estable), medias armónicas en las interfaces. El término G₃ representa el calor que se escapa a lo largo del alambre y del cuerpo (fuera del plano). El cobre absorbe calor latente de fusión a 1083 °C. La fuente se limita a 2.83 V en el secundario (de ahí el PULSE%).</p>
+    </div>
+    <div class="card"><h3>Supuestos y límites</h3>
+      <ul style="margin:0;padding-left:18px">
+        <li>Corte 2D: la profundidad (ancho del gancho) se toma uniforme. Los flancos que toca un electrodo gastado se representan con un factor de área en la punta.</li>
+        <li>Contactos (electrodo-gancho, cierre, esmalte quemado) como capas de una celda con resistividad multiplicada. Esos factores están ajustados, no medidos.</li>
+        <li>El esmalte es aislante hasta ~480 °C y se retira progresivamente; las uniones avanzan por encima de ~700 °C. Modelo cinético simple.</li>
+        <li>No hay mecánica: el cierre del gancho y el hundimiento no se calculan, solo su efecto eléctrico/térmico.</li>
+        <li>Calibrado para reproducir tendencias: 2 alambres OK a la corriente de referencia y quemada con +10%; 3 alambres débil a la misma energía y fría con −15%.</li>
+      </ul></div>
+  </div>
+</section>
+
+</main>
+<footer>Electrodo · guía técnica de fusing de terminales. Modelo educativo: valida en la máquina antes de cambiar parámetros. El código del simulador está en <code>js/sim-core.js</code>.</footer>
+
+<script src="js/sim-core.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+<script src="js/modules.js"></script>
+</body>
+</html>
