@@ -327,7 +327,7 @@
     var frames = [], series = [];
     var Tn = new Float64Array(N);
     T.forEach(function (v, ix) { Tn[ix] = v; });
-    var Rdom = 1, I = 0, V = 0, Pw = 0, Eel = 0, Edom = 0, Eset = 0;
+    var Rdom = 1, I = 0, V = 0, Pw = 0, Eel = 0, Edom = 0, Eset = 0, Emat = new Float64Array(12), EmatWin = new Float64Array(12);
     var inf = G.info;
     function cellAt(xm, ym) { return Math.min(NY - 1, Math.max(0, Math.floor(ym / dx))) * NX + Math.min(NX - 1, Math.max(0, Math.floor(xm / dx))); }
     var midW = Math.floor(p.nWires / 2);
@@ -370,6 +370,7 @@
         if (kS[c]) flux += kS[c] * (T[c - NX] - Tc);
         if (kN[c]) flux += kN[c] * (T[c + NX] - Tc);
         Tn[c] = Tc + dt * (flux * idx2 + q[c] - G3 * k[c] * (Tc - T0)) * invRc[c];
+        if (flow && q[c]) { var dq = q[c] * vol * dt; Emat[mat[c]] += dq; EmatWin[mat[c]] += dq; }
       }
       var tmp = T; T = Tn; Tn = tmp;
       // fusión del cobre (calor latente), esmalte y uniones
@@ -396,7 +397,9 @@
         var bMin = 1; for (var w1 = 0; w1 < nWv; w1++) if (wCount[w1]) bMin = Math.min(bMin, wB[w1] / wCount[w1]);
         for (var e2 = 0; e2 < clos.length; e2++) bdC += bond[clos[e2]];
         for (var e3 = 0; e3 < cuc.length; e3++) { var c6 = cuc[e3]; if (melt[c6] > 0.5) mC++; if (T[c6] > pk.Tcu) pk.Tcu = T[c6]; }
-        series.push({ t: t * 1e3, set: set, we: pi + 1, I: I / 1e3, V: V, pulse: Math.min(100, V / p.Vmax * 100), P: Pw / 1e3, R: Rtot * 1e3,
+        var sm0 = 0; for (var g0 = 0; g0 < 12; g0++) sm0 += EmatWin[g0];
+        var src = Array.from(EmatWin, function (v) { return sm0 > 0 ? v / sm0 : 0; }); EmatWin.fill(0);
+        series.push({ src: src, t: t * 1e3, set: set, we: pi + 1, I: I / 1e3, V: V, pulse: Math.min(100, V / p.Vmax * 100), P: Pw / 1e3, R: Rtot * 1e3,
           Tw: T[probes.wire], Tt: T[probes.tang], Tc: T[probes.close], Te: T[probes.elec],
           burn: enam.length ? bE / enam.length : 0, bondW: enam.length ? bdE / enam.length : 0, bondC: clos.length ? bdC / clos.length : 0, bondMin: enam.length ? bMin : 0, melt: mC * dx * dx * 1e6 });
         var ls = series[series.length - 1];
@@ -410,6 +413,7 @@
       NX: NX, NY: NY, dx: dx, mat: Array.from(mat), info: G.info, frames: frames, series: series,
       summary: {
         Eel: Eel, Edom: Edom, Eset: Eset, Ejoint: EjEnd, peaks: pk, tBurn: tBurn, tBondC: tBondC, tWeldEnd: wf.tWeldEnd * 1e3,
+        heatBy: Array.from(Emat),
         perPulse: perPulse.map(function (x) { return { E: x.E, Imax: x.Imax / 1e3, Imean: x.n ? x.Isum / x.n / 1e3 : 0 }; }),
         geom: geomOut, burn: last.burn, bondW: last.bondW, bondMin: last.bondMin, bondC: last.bondC, melt: last.melt, Rref: RREF * 1e3, iCal: iCal,
         free: G.info.free * 1e3, closeW: G.info.closeW * 1e3, reaches: G.info.reaches

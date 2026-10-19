@@ -378,6 +378,17 @@
     var serB = [{ x: tt, y: T(s, 'burn', 100), color: '#6b7a8c', width: 2 }, { x: tt, y: T(s, 'bondW', 100), color: '#2c8fd6', width: 2 }, { x: tt, y: T(s, 'bondMin', 100), color: ok, width: 2 }, { x: tt, y: T(s, 'bondC', 100), color: '#d4a017', width: 1.5, dash: '3 3' }, { x: tt, y: T(s, 'melt'), color: '#d0473b', width: 2, axis: 2 }];
     if (rs) serB.push({ x: rt, y: T(rs, 'bondMin', 100), color: ok, width: 1.4, dash: '6 4', opacity: 0.5 });
     C.line($('chB'), { series: serB, xMin: 0, xMax: xMax, yMin: 0, yMax: 105, y2Min: 0, y2Max: Math.max(2, cur.summary.melt * 1.2), xLabel: 'ms', yLabel: '%', y2Label: 'mm² fundidos', cursor: tNow, bands: bands });
+    // dónde nace el calor (Joule por región, % del total en cada milisegundo)
+    var HG = [
+      { n: 'Punta maquinada (W)', m: [9], c: '#d0473b' }, { n: 'Contacto electrodo-gancho', m: [7], c: '#d4a017' }, { n: 'Cuerpo del electrodo (W)', m: [1], c: '#8a939e' },
+      { n: 'Gancho / terminal (Cu)', m: [2], c: '#c4652e' }, { n: 'Alambres y esmalte', m: [3, 4], c: '#2c8fd6' }, { n: 'Punta del gancho apoyada', m: [6, 10], c: '#3a9a5b' }, { n: 'Barra y su contacto', m: [5, 8], c: '#7b52b3' }
+    ];
+    var tot = (cur.summary.heatBy || []).reduce(function (a, b) { return a + b; }, 0);
+    var serH = HG.map(function (g) {
+      return { x: tt, y: s.map(function (o) { return o.I > 0 && o.src ? 100 * g.m.reduce(function (a, i) { return a + (o.src[i] || 0); }, 0) : NaN; }), color: g.c, width: 2 };
+    });
+    C.line($('chH'), { series: serH, xMin: 0, xMax: xMax, yMin: 0, yMax: 60, xLabel: 'ms', yLabel: '% del calor generado', cursor: tNow, bands: bands });
+    C.legend($('lgH'), HG.map(function (g) { var e = tot > 0 ? g.m.reduce(function (a, i) { return a + (cur.summary.heatBy[i] || 0); }, 0) / tot * 100 : 0; return { color: g.c, label: g.n + ' ' + e.toFixed(0) + '%' }; }));
     C.legend($('lgB'), [{ color: '#6b7a8c', label: 'Esmalte retirado' }, { color: '#2c8fd6', label: 'Alambres unidos' }, { color: ok, label: 'Alambre más débil' }, { color: '#d4a017', label: 'Punta del gancho (unión)' }, { color: '#d0473b', label: 'Cobre fundido (mm², eje der.)' }]);
   }
   function elecZone(t) {
