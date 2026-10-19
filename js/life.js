@@ -7,13 +7,24 @@
   function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
   function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
   function num(v) { if (v === '' || v == null) return null; var x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : null; }
+  // lista de números: acepta "0.05, 0.06", "0,05 0,06", "62, 58, 65" o "62;58"
+  function parseList(str) {
+    var out = [];
+    String(str || '').trim().split(/\s*;\s*|\s+/).forEach(function (tok) {
+      if (!tok) return;
+      var parts = tok.split(','), sep = tok.indexOf('.') >= 0 || (parts.length > 1 && parts[0] !== '0' && parts[0] !== '' && parts.every(function (q) { return q.length >= 2 || q === ''; }));
+      (sep ? parts : [tok]).forEach(function (q) { var v = num(q); if (v != null) out.push(v); });
+    });
+    return out;
+  }
   function uid() { return Math.random().toString(36).slice(2, 9); }
   var COLS = ['#c4652e', '#2c7fb8', '#3a9a5b', '#7b52b3', '#d4a017', '#d0473b'];
 
   /* ---------------- almacenamiento ---------------- */
   var KEY = 'electrodo-vida-v1', PKEY = 'electrodo-vida-foto-';
-  var D = { cond: [], elec: [], read: [], set: { cavMax: 0.15, fMin: 50, redPct: 20, every: 500 } };
+  var D = { cond: [], elec: [], read: [], set: { cavMax: 0.15, fMin: 50, redPct: 20, every: 1000, res: 0.01 } };
   try { var raw = localStorage.getItem(KEY); if (raw) D = Object.assign(D, JSON.parse(raw)); } catch (e) {}
+  if (D.set.res == null) D.set.res = 0.01;
   function save() { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { alert('No se pudo guardar en el navegador (almacenamiento lleno). Exporta un respaldo JSON.'); } }
   function photo(id) { try { return localStorage.getItem(PKEY + id); } catch (e) { return null; } }
   function savePhoto(id, data) { try { localStorage.setItem(PKEY + id, data); return true; } catch (e) { return false; } }
@@ -68,8 +79,11 @@
       setRow('lfFmin', 'Fuerza mínima aceptable', s.fMin, 'N', 'Límite inferior de fuerza de la unión') +
       setRow('lfRed', 'Mejora mínima de desgaste para aceptar el candidato', s.redPct, '%', 'Reducción de la tasa de desgaste contra la condición actual') +
       setRow('lfEvery', 'Leer cada', s.every, 'golpes', 'Intervalo sugerido entre lecturas') +
+      setRow('lfRes', 'Resolución del instrumento de cavidad', s.res, 'mm', 'La división mínima del indicador o calibrador') +
+      '<div class="note mini" style="margin-top:6px">Con un instrumento de ' + s.res + ' mm, mide la cavidad <b>3 veces</b> en cada lectura (escríbelas separadas por coma) y lee cada ~1000 golpes: los cambios entre lecturas deben ser mayores que la resolución. La pendiente sale de la regresión de todas las lecturas, así que se puede estimar con más precisión que una lectura individual.</div>' +
+      '<div class="note mini" style="margin-top:6px">El criterio de rectificado de arriba es provisional. Hoy se rectifica cuando sale mal la pieza; esta prueba registra a qué profundidad aparece la primera falla y en Análisis propone un criterio medible.</div>' +
       '<div class="note mini" style="margin-top:8px">Recomendado: al menos <b>2 electrodos por condición</b>, alternando A, B, A, B, para separar el efecto del programa de la variación entre electrodos. Cada electrodo empieza recién rectificado y termina al llegar al criterio de rectificado o a un conteo fijo.</div></div></div>' +
-      '<div class="card" style="margin-top:16px"><h3>Electrodos (una vida = de un rectificado al siguiente)</h3><p class="muted" style="font-size:13px">El <b>contador inicial</b> es la lectura del contador del controlador de la máquina al instalar el electrodo recién rectificado. Si el contador cuenta ciclos (estatores) en lugar de golpes de ese electrodo, pon en "golpes por cuenta" cuántos golpes da el electrodo por cada cuenta.</p>' +
+      '<div class="card" style="margin-top:16px"><h3>Electrodos (una vida = de un rectificado al siguiente)</h3><p class="muted" style="font-size:13px">El <b>contador inicial</b> es la lectura del contador del controlador de la máquina al instalar el electrodo recién rectificado. Si el contador cuenta ciclos (estatores) en lugar de golpes de ese electrodo, pon en "golpes por cuenta" cuántos golpes da el electrodo por cada cuenta. <b>Para saberlo:</b> anota el contador, corre 10 estatores y vuelve a leerlo; si subió 10 es por ciclo (pon 3 si el electrodo suelda las 3 terminales), si subió 30 es por golpe (pon 1).</p>' +
       '<div class="tbl-wrap"><table class="edit"><thead><tr><th>Electrodo</th><th>Condición</th><th>Contador inicial</th><th>Golpes por cuenta</th><th>Fecha</th><th>Notas</th><th>Lecturas</th><th></th></tr></thead><tbody>' +
       D.elec.map(function (e) {
         var n = D.read.filter(function (r) { return r.eid === e.id; }).length;
@@ -79,8 +93,8 @@
     var body = $('lfBody');
     body.onchange = function (e) {
       var el = e.target, f = el.dataset.f;
-      if (['lfCav', 'lfFmin', 'lfRed', 'lfEvery'].indexOf(el.id) >= 0) {
-        var k = { lfCav: 'cavMax', lfFmin: 'fMin', lfRed: 'redPct', lfEvery: 'every' }[el.id], v = num(el.value); if (v != null) D.set[k] = v; save(); return;
+      if (['lfCav', 'lfFmin', 'lfRed', 'lfEvery', 'lfRes'].indexOf(el.id) >= 0) {
+        var k = { lfCav: 'cavMax', lfFmin: 'fMin', lfRed: 'redPct', lfEvery: 'every', lfRes: 'res' }[el.id], v = num(el.value); if (v != null) D.set[k] = v; save(); return;
       }
       var tr = el.closest('tr'); if (!tr || !f) return;
       if (tr.dataset.c) { var c = condOf(tr.dataset.c); c[f] = el.value; save(); if (f === 'name') t1(); }
@@ -107,7 +121,7 @@
       (e.c0 == null ? '<div class="note mini" style="background:var(--warn-soft)">Falta el contador inicial de este electrodo (paso 1): sin él no se calculan los golpes.</div>' : '') +
       '<div class="lf-form">' +
       field('counter', 'Contador del controlador', nextCnt, '', 'Lectura del contador de la máquina en este momento') +
-      field('cav', 'Profundidad de cavidad', '', 'mm', 'Medida con indicador de profundidad o comparador') +
+      field('cav', 'Profundidad de cavidad (1 a 3 medidas)', '', 'mm', 'Ejemplo: 0.05, 0.06, 0.05 (se promedian)') +
       '<div class="gh" style="margin-top:8px">Pantalla MONITOR (último golpe)</div>' +
       field('I', 'Corriente', '', 'kA') + field('V', 'Voltaje', '', 'V') + field('P', 'Potencia', '', 'kW') + field('pulse', 'PULSE', '', '%') +
       '<div class="gh" style="margin-top:8px">Calidad</div>' +
@@ -121,13 +135,14 @@
       (rs.length ? '<table class="hist"><thead><tr><th>Contador</th><th>Golpes</th><th>Cavidad</th><th>I</th><th>V</th><th>V/I</th><th>PULSE</th><th>Fuerza</th><th>R</th><th>Hipot</th><th>Surge</th><th>Visual</th><th>Foto</th><th></th></tr></thead><tbody>' +
         rs.map(function (r) {
           var g = golpes(r), fz = r.force || [];
-          return '<tr><td>' + (r.counter != null ? r.counter : '—') + '</td><td>' + (g != null ? g : '—') + '</td><td>' + (r.cav != null ? r.cav.toFixed(3) : '—') + '</td><td>' + (r.I != null ? r.I : '—') + '</td><td>' + (r.V != null ? r.V : '—') + '</td><td>' + (r.I && r.V ? (r.V / r.I).toFixed(3) : '—') + '</td><td>' + (r.pulse != null ? r.pulse : '—') + '</td><td>' + (fz.length ? mean(fz).toFixed(0) + (fz.length > 1 ? ' (n' + fz.length + ')' : '') : '—') + '</td><td>' + (r.R != null ? r.R : '—') + '</td><td>' + (r.hipot || '—') + '</td><td>' + (r.surge || '—') + '</td><td>' + (r.vis || '—') + '</td><td>' + (r.ph ? '📷' : '') + '</td><td><button class="chip" data-delr="' + r.id + '" type="button">✕</button></td></tr>';
+          return '<tr><td>' + (r.counter != null ? r.counter : '—') + '</td><td>' + (g != null ? g : '—') + '</td><td>' + (r.cav != null ? r.cav.toFixed(3) + (r.cavN && r.cavN.length > 1 ? ' (n' + r.cavN.length + ')' : '') : '—') + '</td><td>' + (r.I != null ? r.I : '—') + '</td><td>' + (r.V != null ? r.V : '—') + '</td><td>' + (r.I && r.V ? (r.V / r.I).toFixed(3) : '—') + '</td><td>' + (r.pulse != null ? r.pulse : '—') + '</td><td>' + (fz.length ? mean(fz).toFixed(0) + (fz.length > 1 ? ' (n' + fz.length + ')' : '') : '—') + '</td><td>' + (r.R != null ? r.R : '—') + '</td><td>' + (r.hipot || '—') + '</td><td>' + (r.surge || '—') + '</td><td>' + (r.vis || '—') + '</td><td>' + (r.ph ? '📷' : '') + '</td><td><button class="chip" data-delr="' + r.id + '" type="button">✕</button></td></tr>';
         }).join('') + '</tbody></table>' : '<p class="muted">Sin lecturas. Registra la lectura inicial (golpes 0) con la cavidad del electrodo recién rectificado.</p>') + '</div></div></div>';
     $('lfSel').onchange = function () { selE = this.value; t2(); };
     $('lfAdd').onclick = function () {
       var g = function (id) { return $('lf_' + id).value; };
-      var r = { id: uid(), eid: selE, ts: new Date().toISOString(), counter: num(g('counter')), cav: num(g('cav')), I: num(g('I')), V: num(g('V')), P: num(g('P')), pulse: num(g('pulse')),
-        force: String(g('force')).split(/[;,\s]+/).map(num).filter(function (v) { return v != null; }), R: num(g('R')), hipot: g('hipot'), surge: g('surge'), vis: g('vis'), note: g('note'), ph: false };
+      var cavs = parseList(g('cav'));
+      var r = { id: uid(), eid: selE, ts: new Date().toISOString(), counter: num(String(g('counter')).replace(/[,\s]/g, '')), cav: cavs.length ? +mean(cavs).toFixed(4) : null, cavN: cavs, I: num(g('I')), V: num(g('V')), P: num(g('P')), pulse: num(g('pulse')),
+        force: parseList(g('force')), R: num(g('R')), hipot: g('hipot'), surge: g('surge'), vis: g('vis'), note: g('note'), ph: false };
       if (r.counter == null) { alert('Falta el contador del controlador.'); return; }
       var file = $('lfPh').files[0];
       function done() { D.read.push(r); save(); t2(); }
@@ -202,6 +217,7 @@
     $('lfBody').innerHTML =
       '<div class="card"><h3>Desgaste: profundidad de cavidad contra golpes</h3><svg class="chart" id="lfWear" viewBox="0 0 640 280"></svg><div class="chart-legend" id="lfWearLg"></div><div class="tbl-wrap" style="margin-top:8px">' + tE + '</div></div>' +
       '<div class="card" style="margin-top:16px"><h3>Comparación por condición</h3><div class="tbl-wrap">' + tC + '</div><div id="lfDec" style="margin-top:10px"></div></div>' +
+      '<div class="card" style="margin-top:16px"><h3>Criterio de rectificado con datos</h3><div id="lfCrit"></div></div>' +
       '<div class="grid2" style="margin-top:16px"><div class="card"><h3>Fuerza contra profundidad de cavidad</h3><svg class="chart" id="lfForce" viewBox="0 0 520 240"></svg><div id="lfForceTxt" class="note mini"></div></div>' +
       '<div class="card"><h3>V/I del MONITOR como indicador de desgaste</h3><svg class="chart" id="lfVI" viewBox="0 0 520 240"></svg><div id="lfVITxt" class="note mini"></div></div></div>';
     // gráfica de desgaste
@@ -229,6 +245,22 @@
       dec = '<div class="note"><span class="tag ' + (verdict === 'El candidato cumple' ? 'ok' : verdict === 'Faltan datos' || verdict.indexOf('Prometedor') === 0 ? 'warn' : 'bad') + '">' + verdict + '</span> ' + lines.join(' ') + '</div>';
     } else dec = '<div class="note mini">Registra al menos dos condiciones con lecturas para comparar. La primera condición de la lista se toma como referencia (la actual).</div>';
     $('lfDec').innerHTML = dec;
+    // criterio de rectificado: profundidad a la que aparece la primera falla en cada electrodo
+    var firsts = pe.map(function (p) {
+      var rs = D.read.filter(function (r) { return r.eid === p.e.id && r.cav != null; }).sort(function (a, b) { return (golpes(a) || 0) - (golpes(b) || 0); });
+      var bad = rs.filter(function (r) { return r.hipot === 'NG' || r.surge === 'NG' || (r.vis && r.vis !== 'OK') || (r.force && r.force.length && Math.min.apply(null, r.force) < s.fMin); })[0];
+      return { p: p, cav: bad ? bad.cav : null, g: bad ? golpes(bad) : null, maxCav: rs.length ? rs[rs.length - 1].cav : null };
+    });
+    var fails = firsts.filter(function (f) { return f.cav != null; }), crit = '';
+    if (fails.length) {
+      var minF = Math.min.apply(null, fails.map(function (f) { return f.cav; })), sug = Math.floor(0.8 * minF / s.res) * s.res;
+      crit = '<table class="hist"><thead><tr><th>Electrodo</th><th>Primera falla</th><th>Cavidad</th></tr></thead><tbody>' + firsts.map(function (f) { return '<tr><td>' + esc(f.p.e.label) + '</td><td>' + (f.g != null ? f.g.toLocaleString('es-MX') + ' golpes' : 'sin falla (hasta ' + (f.maxCav != null ? f.maxCav.toFixed(3) + ' mm' : '—') + ')') + '</td><td>' + (f.cav != null ? f.cav.toFixed(3) + ' mm' : '—') + '</td></tr>'; }).join('') + '</tbody></table>' +
+        '<div class="note" style="margin-top:8px">La primera falla (fuerza bajo ' + s.fMin + ' N, NG eléctrico o defecto visual) apareció desde <b>' + minF.toFixed(3) + ' mm</b> de cavidad. Criterio propuesto con 20% de margen: <b>rectificar a ' + sug.toFixed(2) + ' mm</b>, medible con tu instrumento de ' + s.res + ' mm. ' + (fails.length < 3 ? 'Con menos de 3 electrodos con falla, tómalo como provisional.' : '') + '</div>';
+    } else crit = '<div class="note mini">Ningún electrodo ha tenido falla todavía' + (firsts.some(function (f) { return f.maxCav != null; }) ? ' (máximo medido: ' + Math.max.apply(null, firsts.filter(function (f) { return f.maxCav != null; }).map(function (f) { return f.maxCav; })).toFixed(3) + ' mm)' : '') + '. Si la prueba llega lejos sin fallas, el electrodo se puede usar más de lo que hoy se cree.</div>';
+    // resolución del instrumento
+    var resMsg = pe.filter(function (p) { return p.lr; }).map(function (p) { var ch = p.lr.b * p.maxG; return ch < 5 * s.res ? esc(p.e.label) : null; }).filter(Boolean);
+    if (resMsg.length) crit += '<div class="note mini" style="margin-top:6px;background:var(--warn-soft)">En ' + resMsg.join(', ') + ' el cambio total de cavidad es menor que 5 veces la resolución (' + s.res + ' mm): la tasa todavía es poco precisa. Sigue corriendo o mide 3 veces por lectura.</div>';
+    $('lfCrit').innerHTML = crit;
     // fuerza contra cavidad
     var fs = [], fx = [], fy = [];
     D.cond.forEach(function (c) {
