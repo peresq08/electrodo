@@ -27,6 +27,7 @@
     <a href="#controlador">Controlador</a>
     <a href="#parametros">Parámetros</a>
     <a href="#asistente">Asistente DOE</a>
+    <a href="#vida">Vida del electrodo</a>
     <a href="#metodo">Método</a>
     <a href="#modelo">El modelo</a>
   </nav>
@@ -204,7 +205,7 @@
   <div class="grid3" style="margin-top:16px">
     <div class="card"><h3>Cuándo sí conviene</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li><b>Precalentamiento</b>: alambres gruesos o esmalte de alta temperatura, cuando el esmalte atrapado es la falla.</li><li><b>Post-calentamiento</b>: cuando el gancho rebota al soltar o el alambre más alejado del electrodo no termina de unirse.</li><li><b>Pulsación</b>: cuando la punta del electrodo se gasta rápido o se pega.</li><li><b>VLT en WE1</b>: cuando hay expulsión o chisporroteo al inicio por la R alta del esmalte.</li></ul></div>
     <div class="card"><h3>Cuándo no</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li>Pulsos de baja corriente (≈ 0.5 kA) "por si acaso": aportan menos de 2% de la energía.</li><li>Dividir un pulso que ya funciona sin una falla específica que corregir.</li><li>Comparar estrategias sin igualar energía o resultado: gana la que tiene más energía, no la mejor forma.</li></ul></div>
-    <div class="card"><h3>Cómo probarlo en la máquina</h3><p style="font-size:14px;margin:0">Diseño a <b>igual energía</b> (usa el I²t del editor), un factor a la vez contra el programa actual, orden aleatorio y respuesta de jalón + corte. Para quitar pulsos que no aportan, una prueba de <b>equivalencia</b> (TOST): demuestra que el resultado no cambia más que un margen definido.</p></div>
+    <div class="card"><h3>Cómo probarlo en la máquina</h3><p style="font-size:14px;margin:0">Diseño a <b>igual energía</b> (usa el I²t del editor), un factor a la vez contra el programa actual, orden aleatorio y respuesta de fuerza (medidor digital), resistencia y visual. Para quitar pulsos que no aportan, una prueba de <b>equivalencia</b> (TOST): demuestra que el resultado no cambia más que un margen definido.</p></div>
   </div>
 </section>
 
@@ -408,7 +409,7 @@
     <div class="step"><div><h3>Presupuesto de energía</h3><p>Calcula el calor que necesita cada terminal según su masa de cobre (sección <a href="#calor">Calor</a>). Una terminal con más alambres necesita más energía, no la misma corriente. Escala la energía, no la corriente: la corriente pesa al cuadrado.</p></div></div>
     <div class="step"><div><h3>Forma del pulso</h3><p>UP de 40–60% del WELD para que el esmalte salga antes de llegar al pico; UF ≈ 75–80% de HEAT; DOWN corto a una corriente baja para no despegar. Revisa la regla E-10 en el <a href="#pulso">editor</a>.</p></div></div>
     <div class="step"><div><h3>Límites (Fase 0)</h3><p>Barrido de un factor a la vez hasta encontrar fría y quemada en cada terminal. Define el rango del DOE: dentro de los límites, pero suficientemente separados para ver efecto.</p></div></div>
-    <div class="step"><div><h3>Medición confiable</h3><p>Gage R&R del medidor de resistencia antes del DOE. La resistencia detecta uniones abiertas, pero no uniones débiles: agrega una respuesta de fuerza (jalón) y corte transversal.</p></div></div>
+    <div class="step"><div><h3>Medición confiable</h3><p>Gage R&R del medidor de resistencia antes del DOE. La resistencia detecta uniones abiertas, pero no uniones débiles: agrega una respuesta de fuerza con medidor digital.</p></div></div>
     <div class="step"><div><h3>DOE</h3><p>HEAT × WELD (3² o superficie de respuesta), aleatorizado, con bloques. Analiza cada terminal por separado. Busca la meseta: el punto donde la respuesta cambia poco aunque el parámetro varíe (robustez).</p></div></div>
     <div class="step"><div><h3>Confirmación y límites del monitor</h3><p>Corre el set elegido contra el actual. Con 30 soldaduras buenas define los límites del MONITOR SET y el STEPPER según la vida del electrodo.</p></div></div>
   </div>
@@ -428,9 +429,24 @@
   <div id="wzBody"></div>
 </section>
 
+<!-- VIDA DEL ELECTRODO -->
+<section class="sec" id="vida">
+  <div class="kicker">13 · Prueba de vida del electrodo</div>
+  <h2>Encontrar el punto que más alarga la vida del electrodo</h2>
+  <p class="lead">El sweet spot es el pulso más corto que conserva una ventana ancha. Se encuentra en dos pasos: primero se mide la ventana a varios WELD (Asistente de DOE) y después se comparan los mejores candidatos midiendo cuánto se gasta el electrodo y si la unión se mantiene. Aquí se registra y analiza ese segundo paso. Los datos y las fotos se quedan en este navegador; exporta un respaldo JSON.</p>
+  <div class="steps grid3" style="margin:12px 0 16px">
+    <div class="step"><div><h3>Prepara</h3><p>Electrodo recién rectificado por cada vida. Anota el contador del controlador al instalarlo. Mide la cavidad y toma foto en la lectura 0.</p></div></div>
+    <div class="step"><div><h3>Corre y mide</h3><p>Cada ~500 golpes: contador, profundidad de cavidad, foto con la misma luz, pantalla MONITOR (I, V, P, PULSE), fuerza con medidor digital, R, hipot, surge y visual.</p></div></div>
+    <div class="step"><div><h3>Decide</h3><p>Con los criterios escritos antes: tasa de desgaste con su intervalo, vida proyectada, fuerza contra desgaste y si V/I sirve para vigilar el electrodo sin desmontarlo.</p></div></div>
+  </div>
+  <div class="btns" style="margin-bottom:10px"><div class="seg wz-tabs" id="lfTabs"></div></div>
+  <div id="lfBody"></div>
+  <div class="btns" style="margin-top:12px"><button class="btn ghost" type="button" id="lfJson">Respaldo JSON (con fotos)</button><button class="btn ghost" type="button" id="lfCsv">Exportar CSV</button><label class="btn ghost" style="cursor:pointer">Importar respaldo<input type="file" id="lfImp" accept=".json" style="display:none"></label><button class="btn ghost" type="button" id="lfEx">Cargar ejemplo ficticio</button><button class="btn ghost" type="button" id="lfClr" style="color:var(--bad)">Borrar todo</button></div>
+</section>
+
 <!-- MÉTODO -->
 <section class="sec" id="metodo">
-  <div class="kicker">13 · Método experimental</div>
+  <div class="kicker">14 · Método experimental</div>
   <h2>Experimentos y plan de reacción</h2>
   <div class="grid2" style="margin-top:12px">
     <div class="tbl-wrap card"><table>
@@ -438,7 +454,7 @@
       <tbody>
         <tr><td>E1</td><td>¿El medidor de R distingue piezas?</td><td>Gage R&R: 10 piezas × 2 operadores × 3 lecturas; %GRR &lt; 10% de la tolerancia</td></tr>
         <tr><td>E2</td><td>¿Los pulsos 2 y 3 de baja corriente aportan algo?</td><td>Equivalencia (TOST) con y sin, 10 + 10 en bloques ABBA</td></tr>
-        <tr><td>E3</td><td>¿Dónde está la ventana de energía?</td><td>Factorial 4 × 4 HEAT × WELD por terminal; respuesta: fuerza de jalón</td></tr>
+        <tr><td>E3</td><td>¿Dónde está la ventana de energía?</td><td>Factorial 4 × 4 HEAT × WELD por terminal; respuesta: fuerza con medidor digital</td></tr>
         <tr><td>E4</td><td>¿Importa la forma a energía constante?</td><td>2^(4−1) res. IV: precalentamiento, UF%, UP%, HOLD; HEAT recalculado para igualar I²t</td></tr>
         <tr><td>E5</td><td>¿El set nuevo es mejor que el actual?</td><td>6 + 6 con ciclo térmico y ΔR</td></tr>
         <tr><td>E7</td><td>¿Cómo cambia la unión con la vida del electrodo?</td><td>Seguimiento desde rectificado: V/I, PULSE%, cavidad y R cada 50 piezas</td></tr>
@@ -449,7 +465,7 @@
         <thead><tr><th>Medición</th><th>Detecta</th></tr></thead>
         <tbody>
           <tr><td>R entre terminales (4 hilos, corregida a 20 °C)</td><td>Unión abierta o fría</td></tr>
-          <tr><td>Fuerza con cubeta (kg × 9.81 = N)</td><td>Unión débil que pasa R</td></tr>
+          <tr><td>Fuerza con medidor digital (N)</td><td>Unión débil que pasa R</td></tr>
           <tr><td>Corte transversal</td><td>Alambre central sin unir, esmalte atrapado</td></tr>
           <tr><td>Hipot / surge</td><td>Esmalte dañado por exceso de calor</td></tr>
           <tr><td>Ciclo térmico + ΔR</td><td>Uniones latentes que fallarían en campo</td></tr>
@@ -471,7 +487,7 @@
 
 <!-- MODELO -->
 <section class="sec" id="modelo">
-  <div class="kicker">14 · El modelo</div>
+  <div class="kicker">15 · El modelo</div>
   <h2>Qué resuelve el simulador y qué supone</h2>
   <div class="grid2" style="margin-top:12px">
     <div class="card"><h3>Ecuaciones</h3>
@@ -507,6 +523,7 @@
 <script src="js/app.js"></script>
 <script src="js/modules.js"></script>
 <script src="js/wizard.js"></script>
+<script src="js/life.js"></script>
 <script type="module" src="js/geo3d.js"></script>
 </body>
 </html>

@@ -73,7 +73,8 @@
       var Yf = s.axis === 2 ? Y2 : Y1, d = '';
       for (var i = 0; i < s.x.length; i++) { if (!isFinite(s.y[i])) continue; d += (d ? 'L' : 'M') + X(s.x[i]).toFixed(1) + ' ' + Yf(s.y[i]).toFixed(1); }
       if (s.fill) el('path', { d: d + 'L' + X(s.x[s.x.length - 1]) + ' ' + Yf(Math.max(s.axis === 2 ? y2Min : y1Min, 0)) + 'L' + X(s.x[0]) + ' ' + Yf(Math.max(s.axis === 2 ? y2Min : y1Min, 0)) + 'Z', fill: s.color, opacity: 0.12 }, g);
-      el('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 2, 'stroke-dasharray': s.dash || '', 'stroke-linejoin': 'round', opacity: s.opacity || 1 }, g);
+      if (!s.noLine) el('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 2, 'stroke-dasharray': s.dash || '', 'stroke-linejoin': 'round', opacity: s.opacity || 1 }, g);
+      if (s.dots) for (var j = 0; j < s.x.length; j++) { if (!isFinite(s.y[j])) continue; el('circle', { cx: X(s.x[j]).toFixed(1), cy: Yf(s.y[j]).toFixed(1), r: s.r || 3.5, fill: s.hollow ? 'none' : s.color, stroke: s.color, 'stroke-width': 1.5 }, g); }
     });
     if (o.cursor != null) el('line', { x1: X(o.cursor), x2: X(o.cursor), y1: m.t, y2: m.t + ph, class: 'cursor' }, svg);
     return { X: X, Y1: Y1, Y2: Y2, m: m, pw: pw, ph: ph };

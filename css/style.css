@@ -344,3 +344,10 @@ table.hist td, table.hist th { padding: 5px 7px; white-space: nowrap; }
 table.hist td.hdesc { white-space: normal; min-width: 220px; color: var(--ink-2); }
 table.hist tbody tr { cursor: pointer; }
 table.hist tbody tr:hover { background: var(--panel-2); }
+.lf-in { width: 100%; font: 13px var(--mono); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
+.lf-form .row { margin-bottom: 5px; }
+.lf-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.lf-gal figure { margin: 0; background: var(--panel-2); border-radius: 8px; overflow: hidden; }
+.lf-gal img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+.lf-gal figcaption { font: 11.5px var(--mono); padding: 5px 7px; color: var(--ink-2); }
+#vida .grid3 .step { margin: 0; }

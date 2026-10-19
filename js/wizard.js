@@ -14,7 +14,7 @@
   var KEY = 'electrodo-doe-v1', rows = [];
   try { var raw = localStorage.getItem(KEY); if (raw) rows = JSON.parse(raw) || []; } catch (e) { rows = []; }
   var COLS = ['nW', 'heat', 'weld', 'up', 'uf', 'down', 'dl', 'eOther', 'res', 'R', 'pull', 'note'];
-  var LABEL = { nW: 'Alambres', heat: 'HEAT kA', weld: 'WELD ms', up: 'UP ms', uf: 'UF kA', down: 'DOWN ms', dl: 'DL kA', eOther: 'I²t otros pulsos', res: 'Resultado', R: 'R (Ω)', pull: 'Jalón (N)', note: 'Nota' };
+  var LABEL = { nW: 'Alambres', heat: 'HEAT kA', weld: 'WELD ms', up: 'UP ms', uf: 'UF kA', down: 'DOWN ms', dl: 'DL kA', eOther: 'I²t otros pulsos', res: 'Resultado', R: 'R (Ω)', pull: 'Fuerza (N)', note: 'Nota' };
   function save() { try { localStorage.setItem(KEY, JSON.stringify(rows)); } catch (e) {} window.dispatchEvent(new Event('doechange')); }
   function newRow(o) { return Object.assign({ id: Math.random().toString(36).slice(2, 9), nW: 3, heat: 4.0, weld: 450, up: 240, uf: 3.15, down: 40, dl: 2.6, eOther: 0, res: '', R: '', pull: '', note: '' }, o || {}); }
   function rowEnergy(r) {
@@ -35,7 +35,7 @@
     var sep = lines[0].indexOf(';') >= 0 && lines[0].indexOf(',') < 0 ? ';' : lines[0].indexOf('\t') >= 0 ? '\t' : ',';
     function split(l) { var out = [], cur = '', q = false; for (var i = 0; i < l.length; i++) { var ch = l[i]; if (q) { if (ch === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; } else if (ch === '"') q = true; else if (ch === sep) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; }
     var head = split(lines[0]).map(function (h) { return h.trim(); });
-    var alias = { alambres: 'nW', nw: 'nW', heat: 'heat', weld: 'weld', up: 'up', uf: 'uf', down: 'down', dl: 'dl', eother: 'eOther', res: 'res', resultado: 'res', r: 'R', pull: 'pull', jalon: 'pull', 'jalón': 'pull', note: 'note', nota: 'note' };
+    var alias = { fuerza: 'pull', alambres: 'nW', nw: 'nW', heat: 'heat', weld: 'weld', up: 'up', uf: 'uf', down: 'down', dl: 'dl', eother: 'eOther', res: 'res', resultado: 'res', r: 'R', pull: 'pull', jalon: 'pull', 'jalón': 'pull', note: 'note', nota: 'note' };
     var map = head.map(function (h) { var k = h.toLowerCase().replace(/\s*\(.*\)|\s*(ka|ms|n)$/g, '').trim(); return alias[k] || (COLS.indexOf(h) >= 0 ? h : null); });
     return lines.slice(1).map(function (l) {
       var v = split(l), o = {};
@@ -211,7 +211,7 @@
     $('wzBody').innerHTML = '<div class="card"><div class="btns" style="margin-bottom:10px"><button class="btn ghost" type="button" id="wzNew">+ Fila</button><button class="btn ghost" type="button" id="wzImp">Pegar / importar CSV</button><button class="btn ghost" type="button" id="wzExp">Exportar CSV</button><button class="btn ghost" type="button" id="wzEx">Cargar ejemplo ficticio</button><button class="btn ghost" type="button" id="wzClr" style="color:var(--bad)">Borrar todo</button></div>' +
       '<div id="wzImpBox" style="display:none;margin-bottom:10px"><textarea id="wzTxt" rows="6" style="width:100%;font:12px var(--mono);background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px" placeholder="alambres,heat,weld,up,uf,down,dl,res,R,pull,nota\n3,4.0,450,240,3.15,40,2.6,DÉBIL,7.65,38,"></textarea><div class="btns" style="margin-top:6px"><button class="btn" type="button" id="wzImpGo">Agregar filas</button><label class="btn ghost" style="cursor:pointer">Desde archivo<input type="file" id="wzFile" accept=".csv,.txt" style="display:none"></label></div></div>' +
       '<div class="tbl-wrap" id="wzRows"></div>' +
-      '<p class="muted" style="font-size:12.5px;margin-top:8px">Los datos se guardan solo en este navegador; no se suben a ningún lado. Exporta el CSV para respaldarlos o pasarlos a otra computadora. <b>Resultado</b>: OK = unión completa; DÉBIL = pasa resistencia pero abre fácil en jalón o le falta fusión en el corte; FRÍA = esmalte sin remover, abierta o R fuera; QUEMADA = cobre fundido o expulsión. <b>I²t otros pulsos</b>: energía de WE2/WE3 en kA²·s si el programa tiene más de un pulso (está en la sección Pulso).</p></div>' + footer(true, 'Análisis');
+      '<p class="muted" style="font-size:12.5px;margin-top:8px">Los datos se guardan solo en este navegador; no se suben a ningún lado. Exporta el CSV para respaldarlos o pasarlos a otra computadora. <b>Resultado</b>: OK = unión completa; DÉBIL = pasa resistencia pero abre con poca fuerza; FRÍA = esmalte sin remover, abierta o R fuera; QUEMADA = cobre fundido o expulsión. <b>I²t otros pulsos</b>: energía de WE2/WE3 en kA²·s si el programa tiene más de un pulso (está en la sección Pulso).</p></div>' + footer(true, 'Análisis');
     function table() {
       $('wzRows').innerHTML = rows.length ? '<table class="edit"><thead><tr><th>#</th>' + COLS.map(function (c) { return '<th>' + LABEL[c] + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' + rows.map(function (r, i) {
         return '<tr data-id="' + r.id + '"><td>' + (i + 1) + '</td>' + COLS.map(function (c) {
@@ -362,11 +362,11 @@
   function empirical(groups) {
     var box = $('wzEmp'), resp = W.resp || 'pull', nG = W.empN && groups.indexOf(W.empN) >= 0 ? W.empN : groups[groups.length - 1];
     var data = rows.filter(function (r) { return +r.nW === nG && r[resp] !== '' && r[resp] != null && isFinite(+r[resp]) && isFinite(+r.heat) && isFinite(+r.weld); });
-    var head = '<h3>Modelo empírico (regresión, como en Minitab)</h3><div class="btns" style="margin-bottom:8px"><div class="seg" id="wzResp"><button type="button" data-r="pull"' + (resp === 'pull' ? ' class="on"' : '') + '>Jalón (N)</button><button type="button" data-r="R"' + (resp === 'R' ? ' class="on"' : '') + '>R (Ω)</button></div>' +
+    var head = '<h3>Modelo empírico (regresión, como en Minitab)</h3><div class="btns" style="margin-bottom:8px"><div class="seg" id="wzResp"><button type="button" data-r="pull"' + (resp === 'pull' ? ' class="on"' : '') + '>Fuerza (N)</button><button type="button" data-r="R"' + (resp === 'R' ? ' class="on"' : '') + '>R (Ω)</button></div>' +
       (groups.length > 1 ? '<div class="seg" id="wzEmpN">' + groups.map(function (n) { return '<button type="button" data-n="' + n + '"' + (n === nG ? ' class="on"' : '') + '>' + n + ' alambres</button>'; }).join('') + '</div>' : '') + '</div>';
     var hs = {}, ws = {}; data.forEach(function (r) { hs[+r.heat] = 1; ws[+r.weld] = 1; });
     var nh = Object.keys(hs).length, nw = Object.keys(ws).length;
-    if (data.length < 4 || nh < 2) { box.innerHTML = head + '<p class="muted">Se necesitan al menos 4 corridas con ' + (resp === 'pull' ? 'jalón' : 'R') + ' y 2 niveles de HEAT (hay ' + data.length + ').</p>'; bindEmp(groups); return; }
+    if (data.length < 4 || nh < 2) { box.innerHTML = head + '<p class="muted">Se necesitan al menos 4 corridas con ' + (resp === 'pull' ? 'fuerza' : 'R') + ' y 2 niveles de HEAT (hay ' + data.length + ').</p>'; bindEmp(groups); return; }
     var hM = mean(data.map(function (r) { return +r.heat; })), hS = half(data.map(function (r) { return +r.heat; })), wM = mean(data.map(function (r) { return +r.weld; })), wS = half(data.map(function (r) { return +r.weld; }));
     var useW = nw >= 2, quadH = nh >= 3, quadW = nw >= 3;
     var names = ['Constante', 'HEAT'].concat(useW ? ['WELD'] : []).concat(quadH ? ['HEAT²'] : []).concat(quadW ? ['WELD²'] : []).concat(useW ? ['HEAT×WELD'] : []);
@@ -376,8 +376,8 @@
     var m = ols(X, y);
     if (!m) { box.innerHTML = head + '<p class="muted">Los datos no permiten ajustar el modelo (columnas repetidas o pocos niveles).</p>'; bindEmp(groups); return; }
     var coefT = '<table><thead><tr><th>Término (codificado)</th><th>Coef.</th><th>EE</th><th>t</th><th>p</th></tr></thead><tbody>' + names.map(function (nm, k) { var p = m.p[k]; return '<tr><td>' + nm + '</td><td>' + m.b[k].toFixed(3) + '</td><td>' + m.se[k].toFixed(3) + '</td><td>' + (isFinite(m.t[k]) ? m.t[k].toFixed(2) : '—') + '</td><td style="' + (p < 0.05 ? 'color:var(--ok);font-weight:600' : '') + '">' + (isFinite(p) ? p.toFixed(3) : '—') + '</td></tr>'; }).join('') + '</tbody></table>';
-    box.innerHTML = head + '<div class="grid2"><div><canvas id="wzCont" width="520" height="320" style="width:100%;border-radius:6px"></canvas><div class="muted" style="font-size:12px">Superficie ajustada de ' + (resp === 'pull' ? 'jalón' : 'R') + '; puntos = tus corridas (color = resultado).' + (resp === 'pull' ? ' Línea blanca: jalón mínimo.' : '') + '</div>' +
-      (resp === 'pull' ? '<div class="row" style="margin-top:6px"><label>Jalón mínimo (N)</label><input type="range" id="wzPm" min="5" max="150" step="1" value="' + W.pullMin + '"><output id="wzPmo">' + W.pullMin + '</output></div>' : '') + '</div>' +
+    box.innerHTML = head + '<div class="grid2"><div><canvas id="wzCont" width="520" height="320" style="width:100%;border-radius:6px"></canvas><div class="muted" style="font-size:12px">Superficie ajustada de ' + (resp === 'pull' ? 'fuerza' : 'R') + '; puntos = tus corridas (color = resultado).' + (resp === 'pull' ? ' Línea blanca: fuerza mínima.' : '') + '</div>' +
+      (resp === 'pull' ? '<div class="row" style="margin-top:6px"><label>Fuerza mínima (N)</label><input type="range" id="wzPm" min="5" max="150" step="1" value="' + W.pullMin + '"><output id="wzPmo">' + W.pullMin + '</output></div>' : '') + '</div>' +
       '<div><div class="kpi-row"><div class="kpi"><b>' + (m.r2 * 100).toFixed(1) + '%</b><span>R²</span></div><div class="kpi"><b>' + (isFinite(m.r2a) ? (m.r2a * 100).toFixed(1) + '%' : '—') + '</b><span>R² ajustada</span></div><div class="kpi"><b>' + (isFinite(m.s) ? m.s.toFixed(2) : '—') + '</b><span>S (error típico)</span></div><div class="kpi"><b>' + m.n + '</b><span>corridas · ' + m.df + ' gl</span></div></div>' +
       '<div class="tbl-wrap" style="margin-top:8px">' + coefT + '</div><p class="muted" style="font-size:12.5px;margin-top:6px">Variables codificadas: HEAT = (HEAT − ' + hM.toFixed(2) + ')/' + hS.toFixed(2) + (useW ? ', WELD = (WELD − ' + wM.toFixed(0) + ')/' + wS.toFixed(0) : '') + '. p &lt; 0.05 en verde. Con pocas corridas la superficie es solo orientativa.</p></div></div>';
     function draw() {
@@ -401,7 +401,7 @@
       data.forEach(function (r) { var x = (+r.heat - hl) / (hh - hl) * Wd, yy = Hd - (+r.weld - wl) / (wh - wl) * Hd; ctx.beginPath(); ctx.arc(x, Math.min(Hd - 6, Math.max(6, yy)), 6, 0, 7); ctx.fillStyle = colR[r.res] || '#ddd'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#111'; ctx.stroke(); });
       ctx.font = '12px "IBM Plex Mono", monospace'; ctx.fillStyle = '#fff';
       ctx.fillText('HEAT ' + hl.toFixed(2) + '–' + hh.toFixed(2) + ' kA →', 8, Hd - 8); ctx.fillText('WELD ' + Math.round(wl) + '–' + Math.round(wh) + ' ms ↑', 8, 16);
-      ctx.fillText((resp === 'pull' ? 'jalón ' : 'R ') + vmin.toFixed(resp === 'R' ? 2 : 0) + '–' + vmax.toFixed(resp === 'R' ? 2 : 0), Wd - 150, 16);
+      ctx.fillText((resp === 'pull' ? 'fuerza ' : 'R ') + vmin.toFixed(resp === 'R' ? 2 : 0) + '–' + vmax.toFixed(resp === 'R' ? 2 : 0), Wd - 150, 16);
     }
     draw();
     var pm = $('wzPm'); if (pm) pm.oninput = function () { W.pullMin = +this.value; $('wzPmo').textContent = this.value; draw(); };
@@ -428,7 +428,7 @@
         lines.map(function (l) { return '<tr' + (best && l.w === best.w ? ' style="background:var(--ok-soft)"' : '') + '><td>' + l.w + ' ms</td><td>' + (l.r ? l.r.a.toFixed(2) + '–' + l.r.b.toFixed(2) + ' kA' : '—') + '</td><td>' + (l.r ? l.r.c.toFixed(2) + ' kA' : '—') + '</td><td>' + (l.r ? '±' + (l.r.width / 2).toFixed(1) + '%' : 'sin ventana') + '</td></tr>'; }).join('') + '</tbody></table></div>';
       if (best) {
         var bc = best.r.c;
-        html += '<div class="note" style="margin-top:8px"><b>Punto propuesto: HEAT ' + bc.toFixed(2) + ' kA, WELD ' + best.w + ' ms</b> (UF ' + (bc * 0.79).toFixed(2) + ', UP ' + Math.round(best.w * 0.53) + ' ms, DOWN 40 ms a 2.6 kA). Está en el centro de la ventana más ancha entre los WELD que probaste, con ±' + (best.r.width / 2).toFixed(1) + '% de margen según el modelo calibrado.<br><br><b>Siguiente paso:</b> corrida de confirmación de 30 piezas en el punto propuesto contra el actual, con jalón y corte transversal en una muestra, y luego límites del MONITOR SET con esas 30 soldaduras. ' + (r.acc < 0.75 ? '<b>El acierto de la calibración es ' + Math.round(r.acc * 100) + '%: agrega corridas cerca de las fronteras antes de confiar en el margen.</b>' : '') +
+        html += '<div class="note" style="margin-top:8px"><b>Punto propuesto: HEAT ' + bc.toFixed(2) + ' kA, WELD ' + best.w + ' ms</b> (UF ' + (bc * 0.79).toFixed(2) + ', UP ' + Math.round(best.w * 0.53) + ' ms, DOWN 40 ms a 2.6 kA). Está en el centro de la ventana más ancha entre los WELD que probaste, con ±' + (best.r.width / 2).toFixed(1) + '% de margen según el modelo calibrado.<br><br><b>Siguiente paso:</b> corrida de confirmación de 30 piezas en el punto propuesto contra el actual, con fuerza (medidor digital), resistencia, hipot/surge y visual, y luego límites del MONITOR SET con esas 30 soldaduras. ' + (r.acc < 0.75 ? '<b>El acierto de la calibración es ' + Math.round(r.acc * 100) + '%: agrega corridas cerca de las fronteras antes de confiar en el margen.</b>' : '') +
           '<div class="btns" style="margin-top:8px"><button class="btn ghost" type="button" data-rec="' + n + '|' + bc + '|' + best.w + '">Simular el punto propuesto</button></div></div>';
       } else html += '<div class="note">El modelo calibrado no encuentra región OK en los WELD probados.</div>';
     });
