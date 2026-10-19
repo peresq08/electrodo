@@ -83,35 +83,46 @@
 
 <!-- SIMULADOR -->
 <section class="sec" id="simulador">
-  <div class="kicker">02 · Simulador</div>
-  <h2>Simulador electro-térmico 2D</h2>
-  <p class="lead">Cada milisegundo se resuelve la distribución de corriente en el corte (∇·σ∇φ = 0) y la ecuación de calor con la generación Joule q = σ|∇φ|². Las propiedades cambian con la temperatura, el esmalte se elimina al calentarse y las interfaces se unen por encima de la temperatura de unión. Escoge un caso o mueve los parámetros y presiona <b>Simular</b>.</p>
-  <div class="sim" style="margin-top:14px">
-    <div class="card controls" id="simControls"></div>
-    <div class="viewer">
-      <div class="verdict" id="verdict"><div class="big">—</div><div><b>Sin simular</b><div class="muted">Corre un caso para ver el resultado.</div></div></div>
-      <div class="card">
-        <div class="heat-top">
-          <div class="seg layer-seg" id="layerSeg">
-            <button data-l="T" class="on" type="button">Temperatura</button>
-            <button data-l="burn" type="button">Esmalte</button>
-            <button data-l="bond" type="button">Unión</button>
-            <button data-l="mat" type="button">Materiales</button>
+  <div class="sim-head">
+    <div><div class="kicker">02 · Simulador</div><h2>Simulador electro-térmico 2D</h2></div>
+    <p class="lead">Cada milisegundo resuelve la corriente en el corte (∇·σ∇φ = 0) y el calor con generación Joule; el esmalte se retira al calentarse y las interfaces se unen. Ajusta el programa como en el controlador y presiona <b>Simular</b>.</p>
+  </div>
+  <div class="simx">
+    <aside class="card simx-ctl" id="simControls"></aside>
+    <div class="simx-main">
+      <div class="simx-top">
+        <div class="verdict" id="verdict"><div class="big">—</div><div><b>Sin simular</b><div class="muted">Corre un caso para ver el resultado.</div></div></div>
+        <div class="metrics" id="metrics"></div>
+      </div>
+      <div class="simx-view">
+        <div class="card simx-heat">
+          <div class="heat-top">
+            <div class="seg layer-seg" id="layerSeg">
+              <button data-l="T" class="on" type="button">Temperatura</button>
+              <button data-l="burn" type="button">Esmalte</button>
+              <button data-l="bond" type="button">Unión</button>
+              <button data-l="mat" type="button">Materiales</button>
+            </div>
+            <button class="btn ghost" id="playBtn" type="button">▶ Reproducir</button>
           </div>
-          <div class="btns"><button class="btn ghost" id="playBtn" type="button">▶ Reproducir</button></div>
+          <div class="heat-wrap"><canvas id="heat" width="840" height="640"></canvas><div class="hover-read" id="hoverRead"></div></div>
+          <div class="scrub"><input type="range" id="scrub" min="0" max="0" value="0"><span class="mono" id="scrubT">0 ms</span></div>
+          <div class="legend" id="heatLegend"></div>
         </div>
-        <div class="heat-wrap"><canvas id="heat" width="840" height="640"></canvas><div class="hover-read" id="hoverRead"></div></div>
-        <div class="scrub"><input type="range" id="scrub" min="0" max="0" value="0"><span class="mono" id="scrubT">0 ms</span></div>
-        <div class="legend" id="heatLegend"></div>
+        <div class="simx-side">
+          <div class="card simx-charts">
+            <div class="seg chart-tabs"><button type="button" data-pane="I" class="on">Corriente</button><button type="button" data-pane="R">R y potencia</button></div>
+            <div class="chart-pane" data-pane="I"><svg class="chart" id="chI" viewBox="0 0 520 220"></svg><div class="chart-legend" id="lgI"></div></div>
+            <div class="chart-pane" data-pane="R" hidden><svg class="chart" id="chR" viewBox="0 0 520 220"></svg><div class="chart-legend" id="lgR"></div></div>
+          </div>
+          <div class="card simx-charts">
+            <div class="seg chart-tabs"><button type="button" data-pane="T" class="on">Temperatura en sondas</button><button type="button" data-pane="B">Esmalte y uniones</button></div>
+            <div class="chart-pane" data-pane="T"><svg class="chart" id="chT" viewBox="0 0 520 220"></svg><div class="chart-legend" id="lgT"></div></div>
+            <div class="chart-pane" data-pane="B" hidden><svg class="chart" id="chB" viewBox="0 0 520 220"></svg><div class="chart-legend" id="lgB"></div></div>
+          </div>
+        </div>
       </div>
-      <div class="metrics" id="metrics"></div>
-      <div class="grid2">
-        <div class="card"><h3>Corriente y consigna</h3><svg class="chart" id="chI" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgI"></div></div>
-        <div class="card"><h3>Temperatura en las sondas</h3><svg class="chart" id="chT" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgT"></div></div>
-        <div class="card"><h3>Resistencia y potencia</h3><svg class="chart" id="chR" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgR"></div></div>
-        <div class="card"><h3>Progreso: esmalte y uniones</h3><svg class="chart" id="chB" viewBox="0 0 520 230"></svg><div class="chart-legend" id="lgB"></div></div>
-      </div>
-      <div class="note"><b>Cómo leerlo.</b> Las sondas están en: el centro del alambre de en medio (el último en calentarse), la interfaz gancho-alambre, la zona de cierre del gancho contra el cuerpo, y la punta del electrodo. Usa <b>Fijar como referencia</b> para comparar dos casos: la referencia queda punteada en las gráficas.</div>
+      <div class="note"><b>Cómo leerlo.</b> Sondas: centro del alambre de en medio (el último en calentarse), interfaz gancho-alambre, cierre del gancho contra el cuerpo y punta del electrodo. <b>Fijar referencia</b> deja el caso actual punteado en las gráficas para comparar. En el programa, haz clic en un campo y usa ↑↓ (Shift = ×10); WELD 000 apaga ese pulso.</div>
     </div>
   </div>
 </section>
@@ -458,5 +469,6 @@
 <script src="js/app.js"></script>
 <script src="js/modules.js"></script>
 <script src="js/wizard.js"></script>
+<script type="module" src="js/geo3d.js"></script>
 </body>
 </html>

@@ -17,22 +17,23 @@
   var E_T3 = S.energyOf(prog(T3)).total;
   var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, elecX: 0, faceW: 4.5 };
 
+  var AWG_OPTS = [[14, '14 AWG · Ø1.63'], [15, '15 AWG · Ø1.45'], [16, '16 AWG · Ø1.29'], [17, '17 AWG · Ø1.15'], [18, '18 AWG · Ø1.02'], [19, '19 AWG · Ø0.91'], [20, '20 AWG · Ø0.81'], [21, '21 AWG · Ø0.72'], [22, '22 AWG · Ø0.64']];
   var groups = [
-    { name: 'Terminal y posición', items: [
+    { name: 'Terminal', id: 'gTerm', geo: true, items: [
       { k: 'nWires', type: 'seg', opts: [[1, '1'], [2, '2'], [3, '3'], [4, '4']], label: 'Alambres en el gancho' },
-      { k: 'awg', type: 'select', opts: [[14, '14 AWG · Ø1.63'], [15, '15 AWG · Ø1.45'], [16, '16 AWG · Ø1.29'], [17, '17 AWG · Ø1.15'], [18, '18 AWG · Ø1.02'], [19, '19 AWG · Ø0.91'], [20, '20 AWG · Ø0.81'], [21, '21 AWG · Ø0.72'], [22, '22 AWG · Ø0.64']], label: 'Calibre del alambre' },
-      { k: 'thick', label: '<abbr title="Espesor del material de la terminal">Espesor terminal</abbr> (mm)', min: 0.5, max: 1.5, step: 0.05, d: 2 },
-      { k: 'hookLen', label: '<abbr title="Largo desarrollado del gancho; define cuánto gancho queda libre para cerrar">Largo de gancho</abbr> (mm)', min: 5, max: 12, step: 0.1, d: 1 },
-      { k: 'elecX', label: '<abbr title="Corrimiento del centro del electrodo a lo largo del gancho: negativo hacia el doblez, positivo hacia el cierre">Posición del electrodo</abbr> (mm)', min: -2.5, max: 2.5, step: 0.05, d: 2 },
-      { k: 'faceW', label: '<abbr title="Largo de la cara a lo largo del gancho">Largo de cara</abbr> (mm)', min: 2, max: 8, step: 0.1, d: 1 }
+      { k: 'awg', type: 'select', opts: AWG_OPTS, label: 'Calibre del alambre' },
+      { k: 'thick', label: '<abbr title="Espesor del material de la terminal">Espesor</abbr> (mm)', min: 0.5, max: 1.5, step: 0.05, d: 2 },
+      { k: 'hookLen', label: '<abbr title="Largo desarrollado del gancho; define cuánto gancho queda libre para cerrar">Largo de gancho</abbr> (mm)', min: 5, max: 12, step: 0.1, d: 1 }
     ] },
-    { name: 'Electrodo y barra', items: [
+    { name: 'Electrodo y barra', id: 'gElec', geo: true, items: [
+      { k: 'elecX', label: '<abbr title="Corrimiento del centro del electrodo a lo largo del gancho: negativo hacia el doblez, positivo hacia el cierre">Posición</abbr> (mm)', min: -2.5, max: 2.5, step: 0.05, d: 2 },
+      { k: 'faceW', label: '<abbr title="Largo de la cara a lo largo del gancho">Largo de cara</abbr> (mm)', min: 2, max: 8, step: 0.1, d: 1 },
+      { k: 'faceDepth', label: '<abbr title="Ancho de la cara a lo ancho del gancho (el gancho mide 2 mm)">Ancho de cara</abbr> (mm)', min: 1.5, max: 3.6, step: 0.05, d: 2 },
       { k: 'wear', label: '<abbr title="Profundidad de la huella que el gancho deja en la cara del electrodo">Cavidad</abbr> (mm)', min: 0, max: 0.8, step: 0.02, d: 2 },
-      { k: 'faceDepth', label: '<abbr title="Ancho de la cara en la dirección del ancho del gancho (2 mm)">Ancho de cara</abbr> (mm)', min: 1.5, max: 3.6, step: 0.05, d: 2 },
       { k: 'Tel0', label: '<abbr title="Temperatura de la punta al empezar (golpes seguidos la calientan)">T inicial punta</abbr> (°C)', min: 30, max: 500, step: 10, d: 0 },
-      { k: 'gndCu', type: 'seg', opts: [[false, 'Barra W'], [true, 'Barra Cu']], label: 'Material de la barra' }
+      { k: 'gndCu', type: 'seg', opts: [[false, 'Tungsteno'], [true, 'Cobre']], label: 'Barra de tierra' }
     ] },
-    { name: 'Avanzado (modelo)', collapsed: true, items: [
+    { name: 'Avanzado (modelo)', id: 'gAdv', items: [
       { k: 'fElec', label: 'Factor contacto electrodo', min: 1, max: 6, step: 0.1, d: 1 },
       { k: 'fClose', label: 'Factor contacto del cierre', min: 5, max: 60, step: 1, d: 0 },
       { k: 'zLoss', label: 'Longitud de pérdida 3D (mm)', min: 8, max: 60, step: 1, d: 0 },
@@ -42,48 +43,44 @@
     ] }
   ];
   var PRESETS = [
-    { name: '2 alambres · referencia', p: { nWires: 2 }, g: prog({ uf: 3.31, heat: 4.2, dl: 2.6, up: 220, weld: 405, down: 40 }) },
-    { name: '2 alambres · +10%', p: { nWires: 2 }, g: prog({ uf: 3.31, heat: 4.62, dl: 2.6, up: 220, weld: 405, down: 40 }) },
-    { name: '3 alambres · actual', p: { nWires: 3 }, g: prog(T3) },
-    { name: '3 alambres · −15%', p: { nWires: 3 }, g: prog({ uf: 2.68, heat: 3.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
-    { name: '3 alambres · corto y fuerte', p: { nWires: 3 }, g: prog({ uf: 3.36, heat: 4.25, dl: 2.6, up: 160, weld: 300, down: 40 }) },
-    { name: 'Precalentamiento + principal', p: { nWires: 3 }, g: prog({ uf: 2.8, heat: 2.8, dl: 2.8, up: 0, weld: 150, down: 0 }, T3, null, 30) },
-    { name: 'Principal + post-calentamiento', p: { nWires: 3 }, g: prog(T3, { uf: 2.5, heat: 2.5, dl: 2.5, up: 0, weld: 150, down: 0 }, null, 10) },
-    { name: 'Pulsación 3 × 150 ms', p: { nWires: 3 }, g: prog({ uf: 3.73, heat: 3.73, dl: 3.73, up: 0, weld: 150, down: 0, puls: 3, intv: 30 }) },
-    { name: 'VLT para esmalte + SCD', p: { nWires: 3 }, g: prog({ ctrl: 'VLT', uf: 4.0, heat: 4.0, dl: 4.0, up: 0, weld: 120, down: 0 }, { uf: 3.6, heat: 4.0, dl: 2.6, up: 100, weld: 330, down: 40 }, null, 5) },
-    { name: '+ dos pulsos de 0.5 kA', p: { nWires: 3 }, g: prog(T3, { uf: 0.5, heat: 0.5, dl: 0.5, up: 0, weld: 100, down: 0 }, { uf: 0.5, heat: 0.5, dl: 0.5, up: 0, weld: 100, down: 0 }, 20, 20) },
-    { name: 'Electrodo gastado', p: { nWires: 3, wear: 0.4 }, g: prog(T3) },
-    { name: 'Gastado + técnico sube corriente', p: { nWires: 3, wear: 0.4 }, g: prog({ uf: 3.15, heat: 4.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
-    { name: 'Electrodo corrido hacia el cierre', p: { nWires: 3, elecX: 1.5 }, g: prog(T3) },
-    { name: 'Electrodo corrido hacia el doblez', p: { nWires: 3, elecX: -1.5 }, g: prog(T3) },
-    { name: 'Cara angosta', p: { nWires: 3, faceDepth: 1.75 }, g: prog({ uf: 3.1, heat: 3.9, dl: 2.6, up: 240, weld: 450, down: 40 }) },
-    { name: 'Modo PWR', p: { nWires: 3 }, g: prog(Object.assign({ ctrl: 'PWR' }, T3)) }
+    { grp: 'Referencia', name: '2 alambres · referencia', p: { nWires: 2 }, g: prog({ uf: 3.31, heat: 4.2, dl: 2.6, up: 220, weld: 405, down: 40 }) },
+    { grp: 'Referencia', name: '2 alambres · +10%', p: { nWires: 2 }, g: prog({ uf: 3.31, heat: 4.62, dl: 2.6, up: 220, weld: 405, down: 40 }) },
+    { grp: 'Referencia', name: '3 alambres · actual', p: { nWires: 3 }, g: prog(T3) },
+    { grp: 'Referencia', name: '3 alambres · −15%', p: { nWires: 3 }, g: prog({ uf: 2.68, heat: 3.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Referencia', name: '3 alambres · corto y fuerte', p: { nWires: 3 }, g: prog({ uf: 3.36, heat: 4.25, dl: 2.6, up: 160, weld: 300, down: 40 }) },
+    { grp: 'Varios pulsos', name: 'Precalentamiento + principal', p: { nWires: 3 }, g: prog({ uf: 2.8, heat: 2.8, dl: 2.8, up: 0, weld: 150, down: 0 }, T3, null, 30) },
+    { grp: 'Varios pulsos', name: 'Principal + post-calentamiento', p: { nWires: 3 }, g: prog(T3, { uf: 2.5, heat: 2.5, dl: 2.5, up: 0, weld: 150, down: 0 }, null, 10) },
+    { grp: 'Varios pulsos', name: 'Pulsación 3 × 150 ms', p: { nWires: 3 }, g: prog({ uf: 3.73, heat: 3.73, dl: 3.73, up: 0, weld: 150, down: 0, puls: 3, intv: 30 }) },
+    { grp: 'Varios pulsos', name: 'VLT para esmalte + SCD', p: { nWires: 3 }, g: prog({ ctrl: 'VLT', uf: 4.0, heat: 4.0, dl: 4.0, up: 0, weld: 120, down: 0 }, { uf: 3.6, heat: 4.0, dl: 2.6, up: 100, weld: 330, down: 40 }, null, 5) },
+    { grp: 'Varios pulsos', name: '+ dos pulsos de 0.5 kA', p: { nWires: 3 }, g: prog(T3, { uf: 0.5, heat: 0.5, dl: 0.5, up: 0, weld: 100, down: 0 }, { uf: 0.5, heat: 0.5, dl: 0.5, up: 0, weld: 100, down: 0 }, 20, 20) },
+    { grp: 'Electrodo', name: 'Electrodo gastado', p: { nWires: 3, wear: 0.4 }, g: prog(T3) },
+    { grp: 'Electrodo', name: 'Gastado + técnico sube corriente', p: { nWires: 3, wear: 0.4 }, g: prog({ uf: 3.15, heat: 4.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Electrodo', name: 'Electrodo corrido hacia el cierre', p: { nWires: 3, elecX: 1.5 }, g: prog(T3) },
+    { grp: 'Electrodo', name: 'Electrodo corrido hacia el doblez', p: { nWires: 3, elecX: -1.5 }, g: prog(T3) },
+    { grp: 'Electrodo', name: 'Cara angosta', p: { nWires: 3, faceDepth: 1.75 }, g: prog({ uf: 3.1, heat: 3.9, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Control', name: 'Modo PWR', p: { nWires: 3 }, g: prog(Object.assign({ ctrl: 'PWR' }, T3)) }
   ];
 
   var inputs = {}, pulseEd = null;
+  function fieldHTML(it) {
+    if (it.type === 'seg') return '<div class="row r2"><label>' + it.label + '</label><div class="seg" data-k="' + it.k + '">' + it.opts.map(function (o) { return '<button type="button" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
+    if (it.type === 'select') return '<div class="row r2"><label>' + it.label + '</label><select data-k="' + it.k + '" id="in_' + it.k + '">' + it.opts.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select></div>';
+    return '<div class="row"><label for="in_' + it.k + '">' + it.label + '</label><input type="range" id="in_' + it.k + '" data-k="' + it.k + '" min="' + it.min + '" max="' + it.max + '" step="' + it.step + '"><output id="out_' + it.k + '"></output></div>';
+  }
   function buildControls() {
-    var box = $('simControls'), h = '';
-    h += '<div class="ctl-group"><div class="gh">Casos</div><div class="presets" id="presets">' +
-      PRESETS.map(function (pr, i) { return '<button class="chip" type="button" data-i="' + i + '">' + pr.name + '</button>'; }).join('') + '</div></div>';
-    h += '<div class="ctl-group" id="calibBox"></div>';
-    groups.forEach(function (g, gi) {
-      var inner = '';
-      g.items.forEach(function (it) {
-        if (it.type === 'seg') {
-          inner += '<div class="row" style="grid-template-columns:1fr 170px"><label>' + it.label + '</label><div class="seg" data-k="' + it.k + '">' +
-            it.opts.map(function (o) { return '<button type="button" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
-        } else if (it.type === 'select') {
-          inner += '<div class="row" style="grid-template-columns:1fr 170px"><label>' + it.label + '</label><select data-k="' + it.k + '" id="in_' + it.k + '">' + it.opts.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select></div>';
-        } else {
-          inner += '<div class="row"><label for="in_' + it.k + '">' + it.label + '</label><input type="range" id="in_' + it.k + '" data-k="' + it.k + '" min="' + it.min + '" max="' + it.max + '" step="' + it.step + '"><output id="out_' + it.k + '"></output></div>';
-        }
-      });
-      var block = g.collapsed ? '<details class="ctl-group" style="border:0;padding:8px 0;border-top:1px solid var(--line);border-radius:0"><summary class="gh" style="display:list-item">' + g.name + '</summary>' + inner + '</details>'
-        : '<div class="ctl-group"><div class="gh">' + g.name + '</div>' + inner + '</div>';
-      h += block;
-      if (gi === 0) h += '<div class="ctl-group"><div class="gh">Programa de pulsos <span>WE1 → COOL1 → WE2 → COOL2 → WE3 → HOLD</span></div><div id="simPulses"></div></div>';
+    var box = $('simControls'), h = '', grpNames = [];
+    PRESETS.forEach(function (p) { if (grpNames.indexOf(p.grp) < 0) grpNames.push(p.grp); });
+    h += '<div class="ctl-scroll">';
+    h += '<div class="ctl-group"><div class="row r2" style="grid-template-columns:62px 1fr"><label>Caso</label><select id="presetSel"><option value="">— personalizado —</option>' +
+      grpNames.map(function (gname) { return '<optgroup label="' + gname + '">' + PRESETS.map(function (pr, i) { return pr.grp === gname ? '<option value="' + i + '">' + pr.name + '</option>' : ''; }).join('') + '</optgroup>'; }).join('') + '</select></div><div id="calibBox"></div></div>';
+    h += '<div class="ctl-group"><div class="gh">Programa del controlador <span>como en la pantalla</span></div><div id="simPulses"></div></div>';
+    groups.forEach(function (g) {
+      h += '<details class="ctl-det" id="' + g.id + '"><summary><span>' + g.name + '</span><em id="' + g.id + 'Sum"></em></summary><div class="ctl-det-body">' +
+        (g.geo ? '<div class="geo3d-host" data-geo3d><div class="geo3d-msg">Cargando vista 3D…</div></div>' : '') +
+        g.items.map(fieldHTML).join('') + '</div></details>';
     });
-    h += '<div class="ctl-group"><div class="btns"><button class="btn" id="runBtn" type="button">Simular</button><button class="btn ghost" id="refBtn" type="button" disabled>Fijar como referencia</button><button class="btn ghost" id="clrBtn" type="button" disabled>Quitar ref.</button></div><div class="progress"><i id="prog"></i></div><div class="muted" style="font-size:12px;margin-top:6px" id="runInfo">Cada corrida tarda de 1 a 4 s según el equipo.</div></div>';
+    h += '</div>';
+    h += '<div class="ctl-run"><div class="btns"><button class="btn" id="runBtn" type="button">▶ Simular</button><button class="btn ghost" id="refBtn" type="button" disabled>Fijar referencia</button><button class="btn ghost" id="clrBtn" type="button" disabled>Quitar ref.</button></div><div class="progress"><i id="prog"></i></div><div class="muted" style="font-size:12px;margin-top:4px" id="runInfo">Cada corrida tarda de 1 a 4 s.</div></div>';
     box.innerHTML = h;
     groups.forEach(function (g) { g.items.forEach(function (it) { inputs[it.k] = it; }); });
     pulseEd = PU.create($('simPulses'), PROG, function () { markPreset(-1); sync(); });
@@ -101,29 +98,44 @@
         sync(); markPreset(-1); geoPreview(k);
       });
     });
-    $('presets').addEventListener('click', function (e) {
-      var b = e.target.closest('button'); if (!b) return;
-      var i = +b.dataset.i; applyPreset(PRESETS[i]); markPreset(i); run();
+    // vista 3D en el menú abierto
+    box.querySelectorAll('details.ctl-det').forEach(function (d) {
+      d.addEventListener('toggle', function () {
+        if (!d.open) return;
+        var host = d.querySelector('[data-geo3d]');
+        if (host) { box.querySelectorAll('details.ctl-det').forEach(function (o) { if (o !== d && o.open && o.querySelector('[data-geo3d]')) o.open = false; }); attach3D(host); }
+      });
     });
+    $('presetSel').addEventListener('change', function () { if (this.value === '') return; var i = +this.value; applyPreset(PRESETS[i]); run(); });
     $('runBtn').addEventListener('click', run);
     $('refBtn').addEventListener('click', function () { if (cur) { ref = cur; $('clrBtn').disabled = false; drawCharts(); renderMetrics(); } });
     $('clrBtn').addEventListener('click', function () { ref = null; $('clrBtn').disabled = true; drawCharts(); renderMetrics(); });
   }
+  var pending3D = null;
+  function attach3D(host) {
+    if (window.Geo3D) { var m = host.querySelector('.geo3d-msg'); if (m) m.remove(); window.Geo3D.attach(host); window.Geo3D.update(params()); }
+    else pending3D = host;
+  }
+  window.addEventListener('geo3dready', function () { if (pending3D) attach3D(pending3D); });
+  function update3D() { if (window.Geo3D) window.Geo3D.update(params()); }
   function setProgram(g) {
     PROG.we = g.we.map(function (w) { return Object.assign({}, w); });
     PROG.cool1 = g.cool1 || 0; PROG.cool2 = g.cool2 || 0; if (g.hold != null) PROG.hold = g.hold;
-    pulseEd.select(PROG.we[1].on && !PROG.we[0].on ? 1 : 0);
   }
-  function applyPreset(pr) { Object.assign(P, EL0, pr.p); setProgram(pr.g); sync(); }
-  function markPreset(i) { document.querySelectorAll('#presets .chip').forEach(function (c, j) { c.classList.toggle('on', j === i); }); }
+  function applyPreset(pr) { Object.assign(P, EL0, pr.p); setProgram(pr.g); sync(); update3D(); }
+  function markPreset(i) { var s = $('presetSel'); if (s && i < 0) s.value = ''; else if (s) s.value = String(i); }
   function calibBox() {
-    var c = window.Calib, f = c.get(P.nWires), info = c.info(P.nWires), box = $('calibBox');
+    var c = window.Calib, info = c.info(P.nWires), box = $('calibBox');
     if (!box) return;
-    if (!isDefaultGeo()) { box.innerHTML = '<div class="note" style="font-size:12.5px">Geometría distinta a la de referencia (2–3 alambres 17 AWG, terminal de 1 mm, gancho de 8.5 mm): se simula <b>sin calibración</b>. Úsalo para comparar contra la referencia, no para fijar parámetros.</div>'; return; }
-    if (!info) { box.innerHTML = '<div class="note" style="font-size:12.5px">Modelo <b>sin calibrar</b> para ' + P.nWires + ' alambres. Captura tus resultados en el <a href="#asistente">Asistente de DOE</a> para ajustarlo a tu máquina.</div>'; return; }
-    box.innerHTML = '<div class="note" style="font-size:12.5px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="calOn"' + (c.enabled() ? ' checked' : '') + '> Usar calibración con mis datos</label>' +
-      '<div style="margin-top:4px">' + P.nWires + ' alambres: corriente efectiva <b>×' + info.c.toFixed(3) + '</b> (' + info.n + ' corridas, ' + Math.round(info.acc * 100) + '% de acierto)</div></div>';
+    if (!isDefaultGeo()) { box.innerHTML = '<div class="note mini">Geometría distinta a la de referencia: se simula <b>sin calibración</b>. Sirve para comparar, no para fijar parámetros.</div>'; return; }
+    if (!info) { box.innerHTML = '<div class="note mini">Modelo <b>sin calibrar</b> para ' + P.nWires + ' alambres · <a href="#asistente">calibrar con mis datos</a></div>'; return; }
+    box.innerHTML = '<div class="note mini"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="calOn"' + (c.enabled() ? ' checked' : '') + '> Calibrado con mis datos: <b>×' + info.c.toFixed(3) + '</b> (' + info.n + ' corridas, ' + Math.round(info.acc * 100) + '%)</label></div>';
     $('calOn').onchange = function () { c.setEnabled(this.checked); };
+  }
+  function groupSummaries() {
+    var t = $('gTermSum'), e = $('gElecSum');
+    if (t) t.textContent = P.nWires + ' × ' + P.awg + ' AWG · ' + (+P.thick).toFixed(2) + ' mm · gancho ' + (+P.hookLen).toFixed(1);
+    if (e) e.textContent = (P.elecX ? (P.elecX > 0 ? '+' : '') + (+P.elecX).toFixed(2) + ' mm · ' : '') + (+P.faceW).toFixed(1) + '×' + (+P.faceDepth).toFixed(2) + (P.wear > 0 ? ' · cav ' + (+P.wear).toFixed(2) : '');
   }
   function sync() {
     Object.keys(inputs).forEach(function (k) {
@@ -138,25 +150,27 @@
       }
     });
     if (pulseEd) pulseEd.render();
-    calibBox();
+    calibBox(); groupSummaries();
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
   function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5; }
   var geoTimer = null;
   function geoPreview(k) {
+    if (GEO_KEYS.concat(['wear', 'gndCu']).indexOf(k) < 0) return;
+    update3D();
     if (GEO_KEYS.indexOf(k) < 0) return;
     clearTimeout(geoTimer);
     geoTimer = setTimeout(function () {
       var p = params(), g = S.buildGeometry(Object.assign({}, S.DEFAULTS, p));
       drawSection($('heat'), { NX: g.NX, NY: g.NY, mat: Array.from(g.mat), dx: g.dx }, null, 'mat');
       var ctx = $('heat').getContext('2d'); ctx.font = '600 22px "IBM Plex Sans", sans-serif'; ctx.fillStyle = '#fff';
-      ctx.fillText('Vista previa de la geometría · presiona Simular', 16, 32);
+      ctx.fillText('Vista previa del corte · presiona Simular', 16, 32);
       $('heatLegend').textContent = 'Gancho libre para cerrar: ' + (g.info.free * 1e3).toFixed(2) + ' mm · electrodo de ' + (g.info.xE0 * 1e3).toFixed(2) + ' a ' + (g.info.xE1 * 1e3).toFixed(2) + ' mm · gancho de ' + (g.info.xL * 1e3).toFixed(2) + ' a ' + (g.info.xT1 * 1e3).toFixed(2) + ' mm' + (g.info.xE1 > g.info.xT1 + 1e-6 ? ' · el electrodo sobresale del gancho' : '');
     }, 120);
   }
   function params() {
     var p = Object.assign({}, P, { we: PROG.we, cool1: PROG.cool1, cool2: PROG.cool2, hold: PROG.hold });
-    var d = AWG[P.awg] || 1.15; p.wireCore = d / 2 - 0.025; p.wireDiam = d + 0.05;
+    var d = AWG[P.awg] || 1.15; p.wireCore = d / 2 - 0.025; p.wireDiam = d;
     p.iCal = isDefaultGeo() ? window.Calib.get(P.nWires) : 1;
     return JSON.parse(JSON.stringify(p));
   }
@@ -289,7 +303,7 @@
       if (fr.melt[n] > 0.5) s += ' · FUNDIDO';
       s += ' · (' + (x * cur.dx * 1e3).toFixed(2) + ', ' + (y * cur.dx * 1e3).toFixed(2) + ') mm';
       hr.textContent = s; hr.style.display = 'block';
-      hr.style.left = (e.clientX - rc.left) + 'px'; hr.style.top = (e.clientY - rc.top) + 'px';
+      var wr = cv.parentNode.getBoundingClientRect(); hr.style.left = (e.clientX - wr.left) + 'px'; hr.style.top = (e.clientY - wr.top) + 'px';
     });
     cv.addEventListener('mouseleave', function () { hr.style.display = 'none'; });
   }
@@ -351,9 +365,19 @@
       metric('Tiempo con corriente', tEnd.toFixed(0) + ' ms', 'calor en el cobre ' + s.Ejoint.toFixed(0) + ' J (' + (s.Ejoint / s.Eel * 100).toFixed(1) + '%) · PULSE máx ' + maxPulse.toFixed(0) + '%');
   }
   function renderAll() { renderHeat(); drawCharts(); renderMetrics(); }
+  function chartTabs() {
+    document.querySelectorAll('.simx-charts').forEach(function (card) {
+      var t = card.querySelector('.chart-tabs');
+      t.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        t.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        card.querySelectorAll('.chart-pane').forEach(function (p) { p.hidden = p.dataset.pane !== b.dataset.pane; });
+      });
+    });
+  }
 
   function init() {
-    buildControls(); applyPreset(PRESETS[2]); markPreset(2); hoverSetup();
+    buildControls(); applyPreset(PRESETS[2]); markPreset(2); hoverSetup(); chartTabs();
     $('scrub').addEventListener('input', function () { frameIdx = +this.value; renderHeat(); drawCharts(); });
     $('layerSeg').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return; layer = b.dataset.l;
@@ -381,7 +405,7 @@
       Object.assign(P, EL0, p);
       if (g) setProgram(g);
       else if (p.heat) setProgram(prog({ uf: p.uf, heat: p.heat, dl: p.dl, up: p.up, weld: p.weld, down: p.down }, null, null, 0, 0, p.hold));
-      sync(); markPreset(-1); document.getElementById('simulador').scrollIntoView(); run();
+      sync(); update3D(); markPreset(-1); document.getElementById('simulador').scrollIntoView(); run();
     },
     simulate: enqueue, prog: prog, energyT3: E_T3,
     drawSection: drawSection, MATCOL: MATCOL

@@ -155,7 +155,7 @@
       var b = e.target.closest('button'); if (!b) return;
       var g = presets[+b.dataset.i].g;
       state.we = g.we.map(function (w) { return Object.assign({}, w); }); state.cool1 = g.cool1; state.cool2 = g.cool2; state.hold = g.hold;
-      ed.select(0); draw();
+      ed.render(); draw();
     });
     function draw() {
       var sm = PU.sample(state, 1), ser = [{ x: sm.xs, y: sm.all, color: '#8a939e', width: 1.2, fill: true }];
