@@ -67,37 +67,69 @@
     cv.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
   }
 
-  /* ---------------- ventana de proceso ---------------- */
+  /* ---------------- ventana de proceso (con calibración y tus corridas) ---------------- */
+  var WM = window.WindowMap = { data: null, ready: null };
+  WM.ready = fetch('data/ventana.json').then(function (r) { return r.json(); }).then(function (d) { WM.data = d; return d; });
+  // métricas interpoladas (bilineal) en HEAT efectivo h y WELD w
+  WM.metricsAt = function (key, h, w) {
+    var d = WM.data; if (!d || !d.maps[key]) return null;
+    var H = d.heats, W = d.welds, M = d.maps[key];
+    function idx(arr, v) { if (v <= arr[0]) return [0, 0, 0, v < arr[0]]; if (v >= arr[arr.length - 1]) return [arr.length - 1, arr.length - 1, 0, v > arr[arr.length - 1]]; for (var i = 0; i < arr.length - 1; i++) if (v <= arr[i + 1]) return [i, i + 1, (v - arr[i]) / (arr[i + 1] - arr[i]), false]; }
+    var a = idx(H, h), b = idx(W, w), out = {}, ks = ['b', 'bw', 'bc', 'm', 'te', 'tw', 'E'];
+    ks.forEach(function (k) {
+      var v00 = M[b[0]][a[0]][k], v01 = M[b[0]][a[1]][k], v10 = M[b[1]][a[0]][k], v11 = M[b[1]][a[1]][k];
+      out[k] = (v00 * (1 - a[2]) + v01 * a[2]) * (1 - b[2]) + (v10 * (1 - a[2]) + v11 * a[2]) * b[2];
+    });
+    out.outside = a[3] || b[3];
+    return out;
+  };
+  WM.verdictAt = function (key, h, w) { var m = WM.metricsAt(key, h, w); if (!m) return null; var v = S.verdict({ melt: m.m, burn: m.b, bondW: m.bw, bondC: m.bc }); v.m = m; return v; };
+  WM.keyFor = function (nW, worn) { return nW === 2 ? 'w2' : worn ? 'w3gastado' : 'w3'; };
+  // HEAT equivalente: misma I²t que el pulso estándar del mapa (UF=0.79H, UP=53% WELD, DOWN 40 ms a 2.6 kA)
+  WM.equivHeat = function (E, weld) {
+    var w = weld / 1e3, up = Math.round(weld * 0.53) / 1e3, dn = 0.04, k = 0.79, dl = 2.6;
+    var a = up * (k * k + k + 1) / 3 + (w - up - dn) + dn / 3, b = dn * dl / 3, c = dn * dl * dl / 3;
+    return (-b + Math.sqrt(Math.max(0, b * b + 4 * a * (E - c)))) / (2 * a);
+  };
   function windowMap() {
-    var data = null, key = 'w2', sel = null;
+    var key = 'w2', sel = null, useCal = true;
     var CLS = { 'FRÍA': 'FRIA', 'DÉBIL': 'DEBIL', 'OK': 'OK', 'OK (caliente)': 'OKC', 'QUEMADA': 'QUEMADA' };
     var SHORT = { 'FRÍA': 'F', 'DÉBIL': 'D', 'OK': 'OK', 'OK (caliente)': 'OK', 'QUEMADA': 'Q' };
+    function nW() { return key === 'w2' ? 2 : 3; }
+    function cal() { return useCal ? window.Calib.get(nW()) : 1; }
     function draw() {
-      if (!data) return;
-      var H = data.heats, W = data.welds, M = data.maps[key], box = $('wmap');
-      if (!M || M.length < W.length) { box.innerHTML = '<p class="muted">Este mapa aún no está disponible.</p>'; return; }
-      box.style.gridTemplateColumns = '56px repeat(' + H.length + ', 1fr)';
+      var d = WM.data; if (!d) return;
+      var H = d.heats, W = d.welds, box = $('wmap'), c = cal();
+      if (!d.maps[key]) { box.innerHTML = '<p class="muted">Este mapa aún no está disponible.</p>'; return; }
+      var obs = (window.DOEStore ? window.DOEStore.rows() : []).filter(function (r) { return r.nW === nW() && r.res; });
+      box.style.gridTemplateColumns = '52px repeat(' + H.length + ', minmax(0,1fr))';
       var h = '';
       for (var wi = W.length - 1; wi >= 0; wi--) {
-        h += '<div class="hdr">' + W[wi] + ' ms</div>';
+        h += '<div class="hdr">' + W[wi] + '</div>';
         for (var hi = 0; hi < H.length; hi++) {
-          var c = M[wi][hi], v = S.verdict({ melt: c.m, burn: c.b, bondW: c.bw, bondC: c.bc });
-          h += '<div class="c c-' + CLS[v.code] + '" data-w="' + wi + '" data-h="' + hi + '" title="' + v.code + ' · HEAT ' + H[hi] + ' kA · WELD ' + W[wi] + ' ms">' + SHORT[v.code] + '</div>';
+          var v = WM.verdictAt(key, H[hi] * c, W[wi]);
+          var mine = obs.filter(function (r) { var e = window.DOEStore.equiv(r); return Math.abs(e.weld - W[wi]) <= 25 && Math.abs(e.heat - H[hi]) <= 0.05; });
+          var mk = mine.length ? '<i class="obs obs-' + CLS[mine[mine.length - 1].res] + '" title="' + mine.length + ' corrida(s) tuyas: ' + mine.map(function (r) { return r.res; }).join(', ') + '"></i>' : '';
+          h += '<div class="c c-' + CLS[v.code] + (v.m.outside ? ' out' : '') + '" data-w="' + wi + '" data-h="' + hi + '" title="' + v.code + ' · HEAT ' + H[hi] + ' kA · WELD ' + W[wi] + ' ms">' + SHORT[v.code] + mk + '</div>';
         }
       }
-      h += '<div class="hdr">WELD ↑</div>' + H.map(function (x, i) { return '<div class="hdr">' + (i % 2 === 0 ? x.toFixed(1) : '') + '</div>'; }).join('');
-      h += '<div></div><div class="hdr" style="grid-column: span ' + H.length + '">HEAT (kA) →</div>';
+      h += '<div class="hdr">ms ↑</div>' + H.map(function (x, i) { return '<div class="hdr">' + (i % 3 === 0 ? x.toFixed(1) : '') + '</div>'; }).join('');
+      h += '<div></div><div class="hdr" style="grid-column: span ' + H.length + '">HEAT de consigna (kA) →</div>';
       box.innerHTML = h;
+      var info = window.Calib.info(nW());
+      $('wCal').innerHTML = info ? '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="wCalOn"' + (useCal ? ' checked' : '') + '> Aplicar mi calibración (' + nW() + ' alambres, corriente efectiva ×' + info.c.toFixed(3) + ')</label>' : 'Mapa del modelo <b>sin calibrar</b>. Con resultados en el <a href="#asistente">Asistente de DOE</a> el mapa se ajusta a tu máquina y muestra tus corridas encima.';
+      var cb = $('wCalOn'); if (cb) cb.onchange = function () { useCal = this.checked; draw(); };
     }
     function info(wi, hi) {
-      var H = data.heats, W = data.welds, c = data.maps[key][wi][hi], v = S.verdict({ melt: c.m, burn: c.b, bondW: c.bw, bondC: c.bc });
-      var nW = key === 'w2' ? 2 : 3, wear = key === 'w3gastado' ? 0.4 : 0;
-      $('wInfo').innerHTML = '<h3>HEAT ' + H[hi].toFixed(2) + ' kA · WELD ' + W[wi] + ' ms</h3><p><span class="tag ' + v.cls + '">' + v.code + '</span> ' + v.text + '</p>' +
-        '<div class="kpi-row"><div class="kpi"><b>' + Math.round(c.b * 100) + '%</b><span>esmalte retirado</span></div><div class="kpi"><b>' + Math.round(c.bw * 100) + '%</b><span>alambres unidos</span></div><div class="kpi"><b>' + Math.round(c.bc * 100) + '%</b><span>cierre unido</span></div><div class="kpi"><b>' + c.m.toFixed(1) + '</b><span>mm² fundidos</span></div><div class="kpi"><b>' + c.te + ' °C</b><span>punta electrodo</span></div><div class="kpi"><b>' + c.E + ' J</b><span>energía</span></div></div>' +
+      var d = WM.data, H = d.heats, W = d.welds, c = cal(), v = WM.verdictAt(key, H[hi] * c, W[wi]), m = v.m;
+      var wear = key === 'w3gastado' ? 0.4 : 0;
+      $('wInfo').innerHTML = '<h3>HEAT ' + H[hi].toFixed(2) + ' kA · WELD ' + W[wi] + ' ms</h3>' + (c !== 1 ? '<div class="muted" style="font-size:12.5px;margin-bottom:6px">Con la calibración equivale a ' + (H[hi] * c).toFixed(2) + ' kA del modelo</div>' : '') +
+        '<p><span class="tag ' + v.cls + '">' + v.code + '</span> ' + v.text + '</p>' +
+        '<div class="kpi-row"><div class="kpi"><b>' + Math.round(m.b * 100) + '%</b><span>esmalte retirado</span></div><div class="kpi"><b>' + Math.round(m.bw * 100) + '%</b><span>alambres unidos</span></div><div class="kpi"><b>' + Math.round(m.bc * 100) + '%</b><span>cierre unido</span></div><div class="kpi"><b>' + m.m.toFixed(1) + '</b><span>mm² fundidos</span></div><div class="kpi"><b>' + Math.round(m.te) + ' °C</b><span>punta electrodo</span></div><div class="kpi"><b>' + Math.round(m.E) + ' J</b><span>energía</span></div></div>' +
         '<button class="btn" style="margin-top:10px" type="button" id="wLoad">Abrir en el simulador</button>';
       $('wLoad').onclick = function () {
         var w = W[wi], h = H[hi];
-        window.SimUI.load({ nWires: nW, wear: wear, heat: h, uf: +(h * 0.79).toFixed(2), dl: 2.6, weld: w, up: Math.round(w * 0.53), down: 40, hold: 150, mode: 'SCD', pre: false, faceDepth: 3 });
+        window.SimUI.load({ nWires: nW(), wear: wear }, window.SimUI.prog({ uf: +(h * 0.79).toFixed(2), heat: h, dl: 2.6, up: Math.round(w * 0.53), weld: w, down: 40 }, null, null, 0, 0, 150));
       };
     }
     $('wSeg').addEventListener('click', function (e) {
@@ -107,65 +139,137 @@
     $('wmap').addEventListener('click', function (e) {
       var c = e.target.closest('.c'); if (!c) return; sel = [+c.dataset.w, +c.dataset.h]; info(sel[0], sel[1]);
     });
-    fetch('data/ventana.json').then(function (r) { return r.json(); }).then(function (d) { data = d; draw(); })
-      .catch(function () { $('wmap').innerHTML = '<p class="muted">No se pudo cargar data/ventana.json (si abriste el archivo directo del disco, usa GitHub Pages o un servidor local).</p>'; });
+    WM.ready.then(draw).catch(function () { $('wmap').innerHTML = '<p class="muted">No se pudo cargar data/ventana.json (si abriste el archivo directo del disco, usa GitHub Pages o un servidor local).</p>'; });
+    window.addEventListener('calibchange', draw);
+    window.addEventListener('doechange', draw);
   }
 
-  /* ---------------- editor de pulso ---------------- */
+  /* ---------------- editor de pulso (WE1/WE2/WE3) ---------------- */
   function pulse() {
-    var fields = [['UF', 'uf', 1, 6, 0.05, 2, 'kA'], ['HEAT', 'h', 1, 6, 0.05, 2, 'kA'], ['DL', 'dl', 0.5, 6, 0.05, 2, 'kA'], ['UP', 'up', 0, 500, 5, 0, 'ms'], ['WELD', 'w', 50, 800, 5, 0, 'ms'], ['DOWN', 'dn', 0, 300, 5, 0, 'ms'],
-      ['Pulso 2: corriente', 'i2', 0, 5, 0.05, 2, 'kA'], ['Pulso 2: tiempo', 't2', 0, 300, 5, 0, 'ms'], ['COOL entre pulsos', 'c', 0, 200, 5, 0, 'ms']];
-    var s = { uf: 3.15, h: 4.0, dl: 2.6, up: 240, w: 450, dn: 40, i2: 0.5, t2: 100, c: 0 };
-    var ref = null;
-    var box = $('pulseCtl');
-    box.innerHTML = '<div class="presets" style="margin-bottom:10px"><button class="chip" type="button" data-p="a">Rampa + meseta</button><button class="chip" type="button" data-p="b">Con pulso 2 de 0.5 kA</button><button class="chip" type="button" data-p="c">Sin rampa</button><button class="chip" type="button" data-p="d">Misma energía, más corto</button></div>' +
-      fields.map(function (q) { return '<div class="row"><label>' + q[0] + ' (' + q[6] + ')</label><input type="range" data-k="' + q[1] + '" min="' + q[2] + '" max="' + q[3] + '" step="' + q[4] + '"><output id="po_' + q[1] + '"></output></div>'; }).join('') +
-      '<div class="btns" style="margin-top:8px"><button class="btn ghost" type="button" id="pRef">Fijar como referencia</button></div>';
-    var P = { a: { uf: 3.15, h: 4.0, dl: 2.6, up: 240, w: 450, dn: 40, i2: 0, t2: 0, c: 0 }, b: { uf: 3.15, h: 4.0, dl: 2.6, up: 240, w: 450, dn: 40, i2: 0.5, t2: 100, c: 0 }, c: { uf: 4.0, h: 4.0, dl: 4.0, up: 0, w: 450, dn: 0, i2: 0, t2: 0, c: 0 } };
-    function E(q) { var up = q.up / 1e3, w = q.w / 1e3, dn = q.dn / 1e3; return up / 3 * (q.uf * q.uf + q.uf * q.h + q.h * q.h) + q.h * q.h * Math.max(0, w - up - dn) + dn / 3 * (q.h * q.h + q.h * q.dl + q.dl * q.dl) + q.i2 * q.i2 * q.t2 / 1e3; }
-    function wave(q) {
-      var xs = [0], ys = [0], t = 0;
-      xs.push(0); ys.push(q.up > 0 ? q.uf : q.h);
-      xs.push(q.up); ys.push(q.h); xs.push(q.w - q.dn); ys.push(q.h); xs.push(q.w); ys.push(q.dn > 0 ? q.dl : q.h); xs.push(q.w); ys.push(0);
-      t = q.w;
-      if (q.t2 > 0 && q.i2 > 0) { t += q.c; xs.push(t); ys.push(0); xs.push(t); ys.push(q.i2); xs.push(t + q.t2); ys.push(q.i2); xs.push(t + q.t2); ys.push(0); t += q.t2; }
-      xs.push(t + 40); ys.push(0);
-      return { x: xs, y: ys, end: t };
-    }
-    function draw() {
-      fields.forEach(function (q) { var inp = box.querySelector('[data-k="' + q[1] + '"]'); if (document.activeElement !== inp) inp.value = s[q[1]]; $('po_' + q[1]).textContent = f(s[q[1]], q[5]); });
-      var wv = wave(s), ser = [{ x: wv.x, y: wv.y, color: css('--cu'), width: 2.4, fill: true }];
-      if (ref) { var rw = wave(ref); ser.push({ x: rw.x, y: rw.y, color: css('--ink-3'), width: 1.5, dash: '5 4' }); }
-      var xMax = Math.max(wv.end, ref ? wave(ref).end : 0) + 40;
-      var bands = [];
-      if (s.up > 0) bands.push({ x0: 0, x1: s.up, color: css('--blue') });
-      if (s.dn > 0) bands.push({ x0: s.w - s.dn, x1: s.w, color: css('--violet') });
-      C.line($('pulsePlot'), { series: ser, xMin: 0, xMax: xMax, yMin: 0, yMax: 6, xLabel: 'ms', yLabel: 'kA', bands: bands });
-      var e = E(s), e10 = s.up + s.dn >= s.w, e2 = s.i2 * s.i2 * s.t2 / 1e3, flat = s.w - s.up - s.dn;
-      var rms = Math.sqrt((e - e2) / (s.w / 1e3));
-      $('pulseOut').innerHTML =
-        '<div class="kpi"><b>' + e.toFixed(2) + '</b><span>I²t total (kA²·s)</span></div>' +
-        (ref ? '<div class="kpi"><b>' + ((e / E(ref) - 1) * 100).toFixed(1) + '%</b><span>vs referencia</span></div>' : '') +
-        '<div class="kpi"><b>' + rms.toFixed(2) + ' kA</b><span>RMS del pulso 1</span></div>' +
-        '<div class="kpi"><b>' + Math.max(0, flat) + ' ms</b><span>meseta a HEAT</span></div>' +
-        '<div class="kpi"><b>' + (e2 / e * 100).toFixed(1) + '%</b><span>aporte del pulso 2</span></div>' +
-        '<div class="kpi" style="' + (e10 ? 'background:var(--bad-soft)' : '') + '"><b style="color:var(--' + (e10 ? 'bad' : 'ok') + ')">' + (e10 ? 'E-10' : 'OK') + '</b><span>UP + DOWN &lt; WELD</span></div>';
-    }
-    box.addEventListener('input', function (e) { var k = e.target.dataset.k; if (!k) return; s[k] = parseFloat(e.target.value); draw(); });
-    box.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-p]'); if (!b) return;
-      if (b.dataset.p === 'd') {
-        // misma energía con WELD 25% más corto: resolver HEAT
-        var tgt = E(s), q = Object.assign({}, s); q.w = Math.round(s.w * 0.75 / 5) * 5; q.up = Math.round(s.up * 0.75 / 5) * 5;
-        var k = q.uf / q.h, up = q.up / 1e3, w = q.w / 1e3, dn = q.dn / 1e3;
-        var a = up * (k * k + k + 1) / 3 + (w - up - dn) + dn / 3, bb = dn * q.dl / 3, c = dn * q.dl * q.dl / 3 + q.i2 * q.i2 * q.t2 / 1e3;
-        q.h = (-bb + Math.sqrt(bb * bb + 4 * a * (tgt - c))) / (2 * a); q.uf = k * q.h; s = q;
-      } else s = Object.assign({}, P[b.dataset.p]);
-      draw();
+    var PU = window.PulseUI, St = window.Strategies;
+    var state = PU.defaultProgram(), ref = null;
+    var presets = St.build({ uf: 3.15, heat: 4.0, dl: 2.6, up: 240, weld: 450, down: 40 });
+    $('pulsePresets').innerHTML = presets.map(function (p, i) { return '<button class="chip" type="button" data-i="' + i + '">' + p.name + '</button>'; }).join('');
+    var ed = PU.create($('pulseCtl'), state, draw);
+    $('pulsePresets').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var g = presets[+b.dataset.i].g;
+      state.we = g.we.map(function (w) { return Object.assign({}, w); }); state.cool1 = g.cool1; state.cool2 = g.cool2; state.hold = g.hold;
+      ed.select(0); draw();
     });
-    $('pRef').addEventListener('click', function () { ref = Object.assign({}, s); draw(); });
+    function draw() {
+      var sm = PU.sample(state, 1), ser = [{ x: sm.xs, y: sm.all, color: '#8a939e', width: 1.2, fill: true }];
+      for (var i = 0; i < 3; i++) ser.push({ x: sm.xs, y: sm.ys[i], color: PU.WE_COL[i], width: 2.6 });
+      if (ref) { var rs = PU.sample(ref, 1); ser.push({ x: rs.xs, y: rs.all, color: css('--ink-3'), width: 1.5, dash: '5 4' }); }
+      var xMax = Math.max(sm.xs[sm.xs.length - 1], ref ? PU.sample(ref, 5).xs.slice(-1)[0] : 0);
+      var bands = [];
+      sm.wf.segs.forEach(function (sg) {
+        var W = sg.w;
+        if (W.up > 0) bands.push({ x0: sg.t0 * 1e3, x1: sg.t0 * 1e3 + W.up, color: css('--blue'), opacity: 0.1 });
+        if (W.down > 0) bands.push({ x0: sg.t1 * 1e3 - W.down, x1: sg.t1 * 1e3, color: css('--violet'), opacity: 0.12 });
+      });
+      C.line($('pulsePlot'), { series: ser, xMin: 0, xMax: xMax, yMin: 0, yMax: 6, xLabel: 'ms', yLabel: 'kA', bands: bands });
+      var en = S.energyOf(state), errs = S.checkProgram(state);
+      var rows = state.we.map(function (w, i) {
+        if (!w.on) return '<tr style="opacity:.5"><td><span style="color:' + PU.WE_COL[i] + '">■</span> WE' + (i + 1) + '</td><td colspan="5">apagado</td></tr>';
+        var flat = w.weld - w.up - w.down, rms = Math.sqrt(en.per[i] / Math.max(1, w.puls) / (w.weld / 1e3));
+        return '<tr><td><span style="color:' + PU.WE_COL[i] + '">■</span> WE' + (i + 1) + ' <code>' + w.ctrl + '</code></td><td>' + en.per[i].toFixed(2) + '</td><td>' + (en.total > 0 ? Math.round(en.per[i] / en.total * 100) : 0) + '%</td><td>' + rms.toFixed(2) + ' kA</td><td>' + Math.max(0, flat) + ' ms</td><td>' + (w.puls > 1 ? w.puls + ' × ' + w.weld + ' ms, INTERVAL ' + w.intv : '1 × ' + w.weld + ' ms') + '</td></tr>';
+      }).join('');
+      $('pulseTable').innerHTML = '<table><thead><tr><th>Pulso</th><th>I²t (kA²·s)</th><th>% de energía</th><th>RMS</th><th>Meseta</th><th>Repeticiones</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      $('pulseOut').innerHTML =
+        '<div class="kpi"><b>' + en.total.toFixed(2) + '</b><span>I²t total (kA²·s)</span></div>' +
+        (ref ? '<div class="kpi"><b>' + ((en.total / S.energyOf(ref).total - 1) * 100).toFixed(1) + '%</b><span>vs referencia</span></div>' : '') +
+        '<div class="kpi"><b>' + Math.round(sm.wf.tWeldEnd * 1e3) + ' ms</b><span>de la primera a la última corriente</span></div>' +
+        '<div class="kpi"><b>' + Math.round(sm.wf.total * 1e3) + ' ms</b><span>con HOLD</span></div>' +
+        '<div class="kpi" style="' + (errs.length ? 'background:var(--bad-soft)' : '') + '"><b style="color:var(--' + (errs.length ? 'bad' : 'ok') + ')">' + (errs.length ? 'E-10' : 'OK') + '</b><span>' + (errs.length ? errs.join('; ') : 'programa válido') + '</span></div>';
+    }
+    $('pRef').addEventListener('click', function () { ref = PU.clone(state); draw(); });
+    $('pSim').addEventListener('click', function () { window.SimUI.load({ nWires: 3 }, PU.clone(state)); });
     draw();
     window.addEventListener('themechange', draw);
+  }
+
+  /* ---------------- varios pulsos: comparador ---------------- */
+  function multi() {
+    var St = window.Strategies, PU = window.PulseUI, data = null, nW = 3, mode = 'eq', live = null;
+    var BASE = { 3: { uf: 3.15, heat: 4.0, dl: 2.6, up: 240, weld: 450, down: 40 }, 2: { uf: 3.31, heat: 4.2, dl: 2.6, up: 220, weld: 405, down: 40 } };
+    function strats() { return St.build(BASE[nW]); }
+    $('mCards').innerHTML = strats().map(function (s) {
+      return '<div class="card"><h3 style="font-size:18px"><span style="color:' + s.color + '">■</span> ' + s.name + '</h3><p style="font-size:13.5px;color:var(--ink-2);margin:0 0 8px">' + s.why + '</p><svg class="chart" viewBox="0 0 300 90" data-mini="' + s.key + '"></svg></div>';
+    }).join('');
+    function minis() {
+      strats().forEach(function (s) {
+        var sm = PU.sample(s.g, 2), ser = [{ x: sm.xs, y: sm.all, color: '#8a939e', width: 1 }];
+        for (var i = 0; i < 3; i++) ser.push({ x: sm.xs, y: sm.ys[i], color: PU.WE_COL[i], width: 2 });
+        var svg = document.querySelector('[data-mini="' + s.key + '"]');
+        if (svg) C.line(svg, { series: ser, xMin: 0, xMax: 900, yMin: 0, yMax: 5.5 });
+      });
+    }
+    function render() {
+      var src = live || (data && data[nW]); if (!src) return;
+      var ss = strats(), byKey = {}; ss.forEach(function (s) { byKey[s.key] = s; });
+      var rows = src.items.map(function (it) {
+        var s = byKey[it.key], eq = it.eq;
+        if (mode === 'eq') {
+          var v = S.verdict({ melt: eq.melt, burn: eq.burn, bondW: eq.bondW, bondC: eq.bondC });
+          return '<tr><td><span style="color:' + s.color + '">■</span> ' + s.name + '</td><td><span class="tag ' + v.cls + '">' + v.code + '</span></td><td>' + Math.round(eq.bondW * 100) + '%</td><td>' + Math.round(eq.bondC * 100) + '%</td><td>' + eq.melt.toFixed(2) + '</td><td>' + eq.Te + ' °C</td><td>' + eq.tEnd + ' ms</td><td>' + eq.Eel + ' J</td><td><button class="chip" data-open="' + it.key + '" type="button">Simular</button></td></tr>';
+        }
+        if (it.fOk == null) return '';
+        var win = (it.fBurn / it.fOk - 1) * 100, wins = src.items.filter(function (x) { return x.fOk; }).map(function (x) { return (x.fBurn / x.fOk - 1) * 100; }), wMax = Math.max.apply(null, wins);
+        return '<tr><td><span style="color:' + s.color + '">■</span> ' + s.name + '</td><td>×' + it.fOk.toFixed(3) + '</td><td>' + it.ok.E.toFixed(2) + '</td><td>' + it.ok.Eel + ' J</td><td>' + it.ok.Te + ' °C</td><td><b style="color:var(--' + (win >= 0.8 * wMax ? 'ok' : win >= 0.5 * wMax ? 'warn' : 'bad') + ')">' + win.toFixed(1) + '%</b></td><td>' + it.ok.tEnd + ' ms</td><td><button class="chip" data-open="' + it.key + '" data-f="' + it.fOk + '" type="button">Simular</button></td></tr>';
+      }).join('');
+      $('mTable').innerHTML = mode === 'eq'
+        ? '<table><thead><tr><th>Estrategia</th><th>Resultado</th><th>Alambres</th><th>Cierre</th><th>mm² fundidos</th><th>Pico punta</th><th>Corriente hasta</th><th>Energía</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
+        : (src.items[0].fOk == null ? '<p class="muted">El cálculo a igual resultado está precalculado solo para el modelo sin calibrar; usa la vista de igual energía para el cálculo en vivo.</p>' :
+          '<table><thead><tr><th>Estrategia</th><th>Escala de corriente para unir</th><th>I²t necesaria</th><th>Energía eléctrica</th><th>Pico punta (desgaste)</th><th>Margen hasta quemar</th><th>Corriente hasta</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>');
+      // gráfica: temperatura de la punta y del cierre (igual energía)
+      var ser = [];
+      src.items.forEach(function (it) {
+        var s = byKey[it.key]; if (!it.ser) return;
+        var x = it.ser.map(function (o) { return o[0]; });
+        ser.push({ x: x, y: it.ser.map(function (o) { return o[2]; }), color: s.color, width: 2 });
+        ser.push({ x: x, y: it.ser.map(function (o) { return o[3]; }), color: s.color, width: 1.4, dash: '5 4' });
+      });
+      C.line($('mPlot'), { series: ser, xMin: 0, yMin: 0, xLabel: 'ms · línea continua = punta del electrodo, punteada = cierre del gancho', yLabel: '°C', hlines: [{ y: 700, color: '#3a9a5b', label: 'unión' }, { y: 1083, color: '#d0473b', label: 'Cu funde' }] });
+      C.legend($('mLegend'), ss.map(function (s) { return { color: s.color, label: s.name }; }));
+      $('mNote').innerHTML = mode === 'eq'
+        ? '<b>Igual energía (I²t de la consigna).</b> Repartir la misma energía en más tiempo baja el pico de la punta, pero también el de la unión: a igual energía, las estrategias de varios pulsos salen más frías. Compararlas así sola es injusto.'
+        : conclusion(src, byKey) + '<br><br><b>Igual resultado.</b> Para cada estrategia se buscó (por bisección, 14 corridas) la escala de corriente mínima que une alambres y cierre, y la escala a la que se funde el cobre. Lo que importa: <b>cuánto se calienta la punta</b> para lograr la unión (desgaste) y <b>cuánto margen</b> hay hasta quemar (robustez).';
+    }
+    function conclusion(src, byKey) {
+      var its = src.items.filter(function (x) { return x.fOk && x.key !== 'extra'; }); if (!its.length) return '';
+      var lowTe = its.slice().sort(function (a, b) { return a.ok.Te - b.ok.Te; })[0], wide = its.slice().sort(function (a, b) { return (b.fBurn / b.fOk) - (a.fBurn / a.fOk); })[0], uno = its.filter(function (x) { return x.key === 'uno'; })[0];
+      return '<b>Lectura del modelo (' + nW + ' alambres):</b> la punta más fría para lograr la unión es <b>' + byKey[lowTe.key].name + '</b> (' + lowTe.ok.Te + ' °C vs ' + uno.ok.Te + ' °C con un pulso) y el mayor margen hasta quemar es <b>' + byKey[wide.key].name + '</b> (' + ((wide.fBurn / wide.fOk - 1) * 100).toFixed(1) + '% vs ' + ((uno.fBurn / uno.fOk - 1) * 100).toFixed(1) + '%). Las diferencias son de pocos grados y pocos puntos: en este modelo ninguna estrategia de varios pulsos es claramente mejor que un pulso bien ajustado, y casi todas necesitan más energía. Que el modelo no vea una ventaja no prueba que no exista en la máquina (no tiene mecánica), pero sí dice que la ventaja, si existe, hay que demostrarla con un experimento a igual resultado.';
+    }
+    function setSeg(id, val, attr) { $(id).querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset[attr] === String(val)); }); }
+    $('mW').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; nW = +b.dataset.n; live = null; setSeg('mW', nW, 'n'); minis(); render(); });
+    $('mMode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; mode = b.dataset.m; setSeg('mMode', mode, 'm'); render(); });
+    $('mTable').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-open]'); if (!b) return;
+      var s = strats().filter(function (x) { return x.key === b.dataset.open; })[0], g = PU.clone(s.g), f = +(b.dataset.f || 1);
+      g.we.forEach(function (w) { w.uf *= f; w.heat *= f; w.dl *= f; });
+      window.SimUI.load({ nWires: nW }, g);
+    });
+    $('mLive').addEventListener('click', function () {
+      var btn = this, ss = strats(), items = [], k = 0, cal = window.Calib.get(nW);
+      btn.disabled = true; mode = 'eq'; setSeg('mMode', mode, 'm');
+      function next() {
+        if (k >= ss.length) { live = { items: items }; btn.disabled = false; $('mStatus').textContent = 'Recalculado en vivo' + (cal !== 1 ? ' con calibración ×' + cal.toFixed(3) : '') + '.'; render(); return; }
+        var s = ss[k];
+        $('mStatus').textContent = 'Simulando ' + (k + 1) + ' de ' + ss.length + ': ' + s.name + '…';
+        var p = Object.assign({ nWires: nW, frameEvery: 5, iCal: cal }, JSON.parse(JSON.stringify(s.g)));
+        window.SimUI.simulate(p).then(function (r) {
+          var sm = r.summary;
+          items.push({ key: s.key, eq: { burn: sm.burn, bondW: sm.bondW, bondC: sm.bondC, melt: sm.melt, Te: Math.round(sm.peaks.Te), Eel: Math.round(sm.Eel), tEnd: Math.round(sm.tWeldEnd) },
+            ser: r.series.filter(function (o, i) { return i % 5 === 0; }).map(function (o) { return [Math.round(o.t), o.I, Math.round(o.Te), Math.round(o.Tc), Math.round(o.Tw)]; }) });
+          k++; next();
+        }).catch(function (err) { btn.disabled = false; $('mStatus').textContent = 'Error: ' + err.message; });
+      }
+      next();
+    });
+    fetch('data/pulsos.json').then(function (r) { return r.json(); }).then(function (d) { data = d; render(); }).catch(function () { $('mStatus').textContent = 'No se pudo cargar data/pulsos.json; usa "Recalcular en vivo".'; });
+    minis();
+    window.addEventListener('themechange', function () { minis(); render(); });
   }
 
   /* ---------------- presupuesto térmico ---------------- */
@@ -473,7 +577,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    [theme, anatomy, windowMap, pulse, heat, modes, wear, cycle, life, ground, controller].forEach(function (fn) {
+    [theme, anatomy, windowMap, pulse, multi, heat, modes, wear, cycle, life, ground, controller].forEach(function (fn) {
       try { fn(); } catch (e) { console.error(fn.name, e); }
     });
   });

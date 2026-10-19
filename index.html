@@ -18,13 +18,15 @@
     <a href="#proceso">Proceso</a>
     <a href="#simulador">Simulador</a>
     <a href="#ventana">Ventana</a>
-    <a href="#pulso">Pulso</a>
+    <a href="#pulso">Pulsos</a>
+    <a href="#multipulso">Varios pulsos</a>
     <a href="#calor">Calor</a>
     <a href="#modos">Modos</a>
     <a href="#electrodo">Electrodo</a>
     <a href="#tierra">Barra de tierra</a>
     <a href="#controlador">Controlador</a>
     <a href="#parametros">Parámetros</a>
+    <a href="#asistente">Asistente DOE</a>
     <a href="#metodo">Método</a>
     <a href="#modelo">El modelo</a>
   </nav>
@@ -118,7 +120,7 @@
 <section class="sec" id="ventana">
   <div class="kicker">03 · Ventana de proceso</div>
   <h2>Mapa HEAT × WELD calculado con el simulador</h2>
-  <p class="lead">Cada celda es una corrida completa del simulador (270 en total, precalculadas). Muestra lo que el DOE busca encontrar en la máquina: dónde está la región buena y qué tan ancha es. Haz clic en una celda para cargarla en el simulador.</p>
+  <p class="lead">Cada celda es una corrida completa del simulador, precalculada (729 en total). Muestra lo que el DOE busca encontrar en la máquina: dónde está la región buena y qué tan ancha es. Haz clic en una celda para cargarla en el simulador. Si capturas resultados en el <a href="#asistente">Asistente de DOE</a>, el mapa se calibra con ellos y tus corridas aparecen encima como puntos.</p>
   <div class="grid2" style="grid-template-columns: 1.5fr 1fr; margin-top:12px">
     <div class="card">
       <div class="heat-top"><div class="seg" id="wSeg">
@@ -126,6 +128,7 @@
         <button data-k="w3" type="button">3 alambres</button>
         <button data-k="w3gastado" type="button">3 alambres · electrodo gastado</button>
       </div></div>
+      <div class="note" id="wCal" style="margin-bottom:8px;font-size:12.5px"></div>
       <div id="wmap" class="wmap"></div>
       <div class="wkey">
         <span style="--c:#8fb7dd">Fría (esmalte sin remover)</span>
@@ -133,6 +136,7 @@
         <span style="--c:#7cc795">OK</span>
         <span style="--c:#c9dd7f">OK con fusión superficial</span>
         <span style="--c:#e9877b">Quemada</span>
+        <span class="obs-key">● tus corridas (color = resultado observado)</span>
       </div>
     </div>
     <div class="stack">
@@ -145,22 +149,51 @@
 
 <!-- PULSO -->
 <section class="sec" id="pulso">
-  <div class="kicker">04 · Forma del pulso</div>
-  <h2>Editor de pulso y energía I²t</h2>
-  <p class="lead">En el controlador, WELD es el tiempo total del pulso e <b>incluye</b> UP y DOWN. La meseta a HEAT dura WELD − UP − DOWN. Si UP + DOWN ≥ WELD aparece E-10. La energía relativa del pulso se calcula integrando I² en cada tramo.</p>
-  <div class="grid2" style="grid-template-columns: 1fr 1.4fr; margin-top:12px">
+  <div class="kicker">04 · Programa de pulsos</div>
+  <h2>Editor de programa: WE1, WE2, WE3</h2>
+  <p class="lead">El controlador ejecuta en orden <b>WE1 → COOL1 → WE2 → COOL2 → WE3 → HOLD</b>. Cada pulso tiene su propio CTRL, UF/HEAT/DL, UP/WELD/DOWN y PULSATION/INTERVAL (repeticiones con pausa). WELD es el tiempo de cada pulso e <b>incluye</b> UP y DOWN. La energía de cada tramo se calcula integrando I².</p>
+  <div class="presets" id="pulsePresets" style="margin:10px 0"></div>
+  <div class="grid2" style="grid-template-columns: 1fr 1.4fr">
     <div class="card" id="pulseCtl"></div>
     <div class="card">
       <svg class="chart" id="pulsePlot" viewBox="0 0 620 260"></svg>
       <div class="kpi-row" id="pulseOut" style="margin-top:8px"></div>
-      <div class="formula" style="margin-top:10px">I²t = UP/3·(UF² + UF·H + H²) + H²·(WELD − UP − DOWN) + DOWN/3·(H² + H·DL + DL²)</div>
+      <div class="tbl-wrap" id="pulseTable" style="margin-top:10px"></div>
+      <div class="btns" style="margin-top:10px"><button class="btn ghost" type="button" id="pRef">Fijar como referencia</button><button class="btn" type="button" id="pSim">Simular este programa</button></div>
+      <div class="formula" style="margin-top:10px">I²t por pulso = PULSATION × [UP/3·(UF² + UF·H + H²) + H²·(WELD − UP − DOWN) + DOWN/3·(H² + H·DL + DL²)]</div>
+      <div class="note" style="margin-top:10px;font-size:13px"><b>Reglas E-10 que revisa el editor:</b> UP + DOWN &lt; WELD; UF y DL no mayores que HEAT; pulsos consecutivos sin COOL con modos distintos no pueden tener rampa en la unión; pulsación con rampas necesita INTERVAL. En PWR y VLT la consigna se muestra en kA equivalentes a la R de referencia.</div>
     </div>
+  </div>
+</section>
+
+<!-- VARIOS PULSOS -->
+<section class="sec" id="multipulso">
+  <div class="kicker">05 · Varios pulsos</div>
+  <h2>¿Uno, dos o tres pulsos? Estrategias y comparador</h2>
+  <p class="lead">Un programa de varios pulsos sirve cuando cada pulso hace un trabajo distinto: quitar esmalte, unir, forjar o dejar que la punta del electrodo descargue calor. Si dos pulsos hacen lo mismo, solo alargan el ciclo. Abajo, cada estrategia con su forma de onda, y un comparador que las corre en el simulador de dos maneras: <b>a igual energía</b> y <b>a igual resultado</b>.</p>
+  <div class="grid3" id="mCards" style="margin-top:12px"></div>
+  <div class="card" style="margin-top:16px">
+    <div class="heat-top">
+      <div class="btns"><div class="seg" id="mW"><button type="button" data-n="2">2 alambres</button><button type="button" data-n="3" class="on">3 alambres</button></div>
+      <div class="seg" id="mMode"><button type="button" data-m="eq" class="on">Igual energía</button><button type="button" data-m="res">Igual resultado</button></div></div>
+      <div class="btns"><button class="btn ghost" type="button" id="mLive">Recalcular igual energía en vivo</button></div>
+    </div>
+    <div class="muted" id="mStatus" style="font-size:12.5px;margin-bottom:6px">Resultados precalculados con el modelo sin calibrar. "Recalcular en vivo" usa tu calibración si existe.</div>
+    <div class="tbl-wrap" id="mTable"></div>
+    <div class="note" id="mNote" style="margin-top:10px"></div>
+    <svg class="chart" id="mPlot" viewBox="0 0 620 260" style="margin-top:10px"></svg>
+    <div class="chart-legend" id="mLegend"></div>
+  </div>
+  <div class="grid3" style="margin-top:16px">
+    <div class="card"><h3>Cuándo sí conviene</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li><b>Precalentamiento</b>: alambres gruesos o esmalte de alta temperatura, cuando el esmalte atrapado es la falla.</li><li><b>Post-calentamiento</b>: cuando el gancho rebota o el cierre no se une aunque los alambres sí.</li><li><b>Pulsación</b>: cuando la punta del electrodo se gasta rápido o se pega.</li><li><b>VLT en WE1</b>: cuando hay expulsión o chisporroteo al inicio por la R alta del esmalte.</li></ul></div>
+    <div class="card"><h3>Cuándo no</h3><ul style="margin:0;padding-left:18px;font-size:14px"><li>Pulsos de baja corriente (≈ 0.5 kA) "por si acaso": aportan menos de 2% de la energía.</li><li>Dividir un pulso que ya funciona sin una falla específica que corregir.</li><li>Comparar estrategias sin igualar energía o resultado: gana la que tiene más energía, no la mejor forma.</li></ul></div>
+    <div class="card"><h3>Cómo probarlo en la máquina</h3><p style="font-size:14px;margin:0">Diseño a <b>igual energía</b> (usa el I²t del editor), un factor a la vez contra el programa actual, orden aleatorio y respuesta de jalón + corte. Para quitar pulsos que no aportan, una prueba de <b>equivalencia</b> (TOST): demuestra que el resultado no cambia más que un margen definido.</p></div>
   </div>
 </section>
 
 <!-- CALOR -->
 <section class="sec" id="calor">
-  <div class="kicker">05 · Cálculos de calor</div>
+  <div class="kicker">06 · Cálculos de calor</div>
   <h2>Presupuesto térmico de la unión</h2>
   <p class="lead">Cuánto calor necesita el cobre de la unión para llegar a temperatura (Q = m·c·ΔT), cuánto entrega la fuente (V·I·t) y qué tan lejos viaja el calor en el tiempo del pulso (√(α·t)). Los valores por defecto son de un gancho de 1 mm × 2 mm con alambre 17 AWG.</p>
   <div class="grid2" style="margin-top:12px">
@@ -175,7 +208,7 @@
 
 <!-- MODOS -->
 <section class="sec" id="modos">
-  <div class="kicker">06 · Modos de control</div>
+  <div class="kicker">07 · Modos de control</div>
   <h2>Qué hace la fuente cuando cambia la resistencia</h2>
   <p class="lead">La fuente inverter regula el ancho de pulso del primario (PWM a 600–3000 Hz) para que la variable de control llegue a la consigna. Lo que cambia entre modos es <b>qué variable</b> se mantiene constante. Mueve la resistencia y observa corriente, voltaje y potencia.</p>
   <div class="grid2" style="margin-top:12px">
@@ -210,7 +243,7 @@
 
 <!-- ELECTRODO -->
 <section class="sec" id="electrodo">
-  <div class="kicker">07 · Electrodo</div>
+  <div class="kicker">08 · Electrodo</div>
   <h2>Cómo se gasta el electrodo y qué hacer al respecto</h2>
   <p class="lead">El tungsteno no se "quema": a cada golpe, con la punta caliente y bajo presión, se deforma y toma la <b>forma negativa</b> de la terminal. La cavidad abraza los flancos del gancho y reparte la corriente en más área. Menos densidad de corriente y menos presión dan uniones frías, y la reacción natural (subir corriente) acelera el desgaste.</p>
   <div class="grid2" style="margin-top:12px">
@@ -257,7 +290,7 @@
 
 <!-- TIERRA -->
 <section class="sec" id="tierra">
-  <div class="kicker">08 · Barra de tierra</div>
+  <div class="kicker">09 · Barra de tierra</div>
   <h2>Barra de tierra (contra-electrodo)</h2>
   <p class="lead">La barra cierra el circuito por el cuerpo de la terminal. No debería calentarse: su trabajo es conducir con poca resistencia y sacar calor. Cuando es de cobre y la sección es pequeña, se calienta, se ablanda y se deforma ("hongo"), y el cobre contra cobre se pega. <span class="tag warn">En estudio</span></p>
   <div class="grid3" style="margin-top:12px">
@@ -279,7 +312,7 @@
 
 <!-- CONTROLADOR -->
 <section class="sec" id="controlador">
-  <div class="kicker">09 · Controlador</div>
+  <div class="kicker">10 · Controlador</div>
   <h2>Pantallas del programador (fuente inverter tipo IS-300A / MA-660A)</h2>
   <p class="lead">Haz clic en cualquier campo de la pantalla para ver qué hace, su rango y cómo se usa en fusing. Los valores mostrados son de ejemplo.</p>
   <div class="grid2" style="grid-template-columns: 1.3fr 1fr; margin-top:12px">
@@ -321,7 +354,7 @@
 
 <!-- PARÁMETROS -->
 <section class="sec" id="parametros">
-  <div class="kicker">10 · Cómo escoger parámetros</div>
+  <div class="kicker">11 · Cómo escoger parámetros</div>
   <h2>Del cálculo al set validado</h2>
   <p class="lead">Los parámetros no se escogen moviendo HEAT hasta que "se vea bien". Se parte de un presupuesto de energía, se encuentran los límites, se optimiza con un DOE y se confirma. Cada paso usa una herramienta de esta página.</p>
   <div class="steps" style="margin-top:12px">
@@ -339,9 +372,18 @@
   </div>
 </section>
 
+<!-- ASISTENTE -->
+<section class="sec" id="asistente">
+  <div class="kicker">12 · Asistente de DOE</div>
+  <h2>De la terminal al punto de operación, con tus datos</h2>
+  <p class="lead">Una guía paso a paso: describe la terminal, obtén un punto de partida del modelo, genera un plan aleatorizado, captura los resultados de la máquina y el asistente <b>calibra el simulador</b> con ellos, ajusta un modelo de regresión y propone el punto de operación con su margen. Los datos se quedan en tu navegador.</p>
+  <div class="seg wz-tabs" id="wzTabs" style="margin:12px 0"></div>
+  <div id="wzBody"></div>
+</section>
+
 <!-- MÉTODO -->
 <section class="sec" id="metodo">
-  <div class="kicker">11 · Método experimental</div>
+  <div class="kicker">13 · Método experimental</div>
   <h2>Experimentos y plan de reacción</h2>
   <div class="grid2" style="margin-top:12px">
     <div class="tbl-wrap card"><table>
@@ -382,7 +424,7 @@
 
 <!-- MODELO -->
 <section class="sec" id="modelo">
-  <div class="kicker">12 · El modelo</div>
+  <div class="kicker">14 · El modelo</div>
   <h2>Qué resuelve el simulador y qué supone</h2>
   <div class="grid2" style="margin-top:12px">
     <div class="card"><h3>Ecuaciones</h3>
@@ -397,6 +439,9 @@
         <li>Contactos (electrodo-gancho, cierre, esmalte quemado) como capas de una celda con resistividad multiplicada. Esos factores están ajustados, no medidos.</li>
         <li>El esmalte es aislante hasta ~480 °C y se retira progresivamente; las uniones avanzan por encima de ~700 °C. Modelo cinético simple.</li>
         <li>No hay mecánica: el cierre del gancho y el hundimiento no se calculan, solo su efecto eléctrico/térmico.</li>
+        <li>Programa de pulsos completo como el controlador: WE1/WE2/WE3, COOL1/COOL2, PULSATION/INTERVAL y CTRL por pulso.</li>
+        <li>Geometría ajustable en el plano: posición del electrodo a lo largo del gancho, largo de cara, espesor de terminal, largo de gancho, calibre y 1–4 alambres. Lo que pasa a lo ancho del gancho (desalineación lateral, inclinación) necesita un modelo 3D.</li>
+        <li>Calibración opcional con tus resultados: un factor de corriente efectiva por número de alambres, ajustado en el Asistente de DOE. Solo aplica a la geometría de referencia (2–3 alambres 17 AWG, terminal de 1 mm, gancho de 8.5 mm).</li>
         <li>Calibrado para reproducir tendencias: 2 alambres OK a la corriente de referencia y quemada con +10%; 3 alambres débil a la misma energía y fría con −15%.</li>
       </ul></div>
   </div>
@@ -407,7 +452,11 @@
 
 <script src="js/sim-core.js"></script>
 <script src="js/charts.js"></script>
+<script src="js/calib.js"></script>
+<script src="js/pulse-ui.js"></script>
+<script src="js/strategies.js"></script>
 <script src="js/app.js"></script>
 <script src="js/modules.js"></script>
+<script src="js/wizard.js"></script>
 </body>
 </html>

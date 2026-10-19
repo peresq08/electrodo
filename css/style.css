@@ -214,3 +214,30 @@ footer { border-top: 1px solid var(--line); padding: 24px 16px 40px; text-align:
 .grid2 > *, .grid3 > *, .grid4 > *, .sim > *, .viewer > * { min-width: 0; }
 @media (max-width: 1000px) { .grid2.wide-left { grid-template-columns: 1fr !important; } }
 @media (max-width: 680px) { .grid2 { grid-template-columns: 1fr !important; } .lcd { font-size: 11px; } .wmap { font-size: 9px; } }
+
+/* programa de pulsos */
+.we-tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.we-tabs .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.we-tabs button.on .dot { box-shadow: 0 0 0 2px var(--panel); }
+.ctl-group .gh span { font-weight: 400; letter-spacing: 0; text-transform: none; }
+select { font: 13px var(--sans); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+
+/* mapa: celdas fuera de rango y corridas propias */
+.wmap .c { position: relative; }
+.wmap .c.out { opacity: .45; }
+.wmap .obs { position: absolute; right: 2px; top: 2px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #111; }
+.obs-FRIA { background: #2c6e9e; } .obs-DEBIL { background: #a86a00; } .obs-OK, .obs-OKC { background: #1f6b3e; } .obs-QUEMADA { background: #b3352b; }
+.obs-key { color: var(--ink-2); }
+.obs-key::before { display: none !important; }
+
+/* asistente */
+.wz-tabs { flex-wrap: wrap; }
+.wz-tabs button { padding: 8px 10px; }
+table.edit td { padding: 4px 4px; }
+table.edit input, table.edit select { font: 12.5px var(--mono); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 4px 5px; }
+table.edit select.res-OK { background: var(--ok-soft); } table.edit select.res-DEBIL { background: var(--warn-soft); }
+table.edit select.res-FRIA { background: #dbe8f5; color: #1b1f24; } table.edit select.res-QUEMADA { background: var(--bad-soft); }
+h4 { font-family: var(--cond); font-size: 18px; font-weight: 600; }
+@media (max-width: 680px) { .wz-tabs button { flex: 1 1 45%; } }
+.verdict { grid-template-columns: minmax(150px, 200px) 1fr; }
+.verdict .big { font-size: clamp(22px, 2.6vw, 30px); white-space: nowrap; }
