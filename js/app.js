@@ -9,13 +9,13 @@
   var AWG = { 14: 1.628, 15: 1.450, 16: 1.291, 17: 1.150, 18: 1.024, 19: 0.912, 20: 0.812, 21: 0.723, 22: 0.644 };
   var P = Object.assign({}, S.DEFAULTS, { nWires: 3, awg: 17 });
   var GEO0 = { awg: 17, thick: 1.0, hookLen: 8.5, elecX: 0, faceW: 4.5 };
-  var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'closeAngle', 'elecType', 'stepLen', 'elecX', 'faceW', 'faceDepth'];
+  var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'closeAngle', 'elecType', 'stepLen', 'elecD', 'bossH', 'elecX', 'faceW', 'faceDepth'];
   var PROG = PU.defaultProgram();
   function pw(o) { return S.pulseOf(Object.assign({ on: true, ctrl: 'SCD', puls: 1, intv: 0 }, o)); }
   function prog(we1, we2, we3, cool1, cool2, hold) { return { we: [we1 ? pw(we1) : S.pulseOf({}), we2 ? pw(we2) : S.pulseOf({}), we3 ? pw(we3) : S.pulseOf({})], cool1: cool1 || 0, cool2: cool2 || 0, hold: hold == null ? 250 : hold }; }
   var T3 = { uf: 3.15, heat: 4.0, dl: 2.6, up: 240, weld: 450, down: 40 };
   var E_T3 = S.energyOf(prog(T3)).total;
-  var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, closeAngle: 60, elecType: 'flat', stepLen: 2.0, elecX: 0, faceW: 4.5 };
+  var EL0 = { wear: 0, faceDepth: 3, awg: 17, thick: 1.0, hookLen: 8.5, closeAngle: 60, elecType: 'flat', stepLen: 2.0, elecD: 6.0, bossH: 1.5, elecLen: 15, elecX: 0, faceW: 4.5 };
 
   var AWG_OPTS = [[14, '14 AWG · Ø1.63'], [15, '15 AWG · Ø1.45'], [16, '16 AWG · Ø1.29'], [17, '17 AWG · Ø1.15'], [18, '18 AWG · Ø1.02'], [19, '19 AWG · Ø0.91'], [20, '20 AWG · Ø0.81'], [21, '21 AWG · Ø0.72'], [22, '22 AWG · Ø0.64']];
   var groups = [
@@ -29,6 +29,9 @@
     { name: 'Electrodo y barra', id: 'gElec', geo: true, items: [
       { k: 'elecType', type: 'seg', opts: [['flat', 'Plano'], ['step', 'Escalonado']], label: '<abbr title="Escalonado: una cara pisa los alambres y otra, más baja, pisa la punta del gancho apoyada sobre el cuerpo">Tipo de electrodo</abbr>' },
       { k: 'stepLen', label: '<abbr title="Largo de la cara baja del escalón, sobre la punta apoyada">Largo del escalón</abbr> (mm)', min: 0.5, max: 4, step: 0.1, d: 1 },
+      { k: 'elecD', label: '<abbr title="Diámetro del cilindro de tungsteno del que se maquina la punta">Diámetro del electrodo</abbr> (mm)', min: 3, max: 12, step: 0.1, d: 1 },
+      { k: 'bossH', label: '<abbr title="Altura de los rasgos maquinados en la punta (la cara que pisa) antes de llegar al diámetro completo">Altura maquinada</abbr> (mm)', min: 0.3, max: 4, step: 0.1, d: 1 },
+      { k: 'elecLen', label: '<abbr title="Largo de tungsteno desde la punta hasta el portaelectrodo enfriado por agua">Largo hasta el agua</abbr> (mm)', min: 5, max: 40, step: 1, d: 0 },
       { k: 'elecX', label: '<abbr title="Corrimiento del centro del electrodo a lo largo del gancho: negativo hacia el doblez, positivo hacia el cierre">Posición</abbr> (mm)', min: -2.5, max: 2.5, step: 0.05, d: 2 },
       { k: 'faceW', label: '<abbr title="Largo de la cara a lo largo del gancho">Largo de cara</abbr> (mm)', min: 2, max: 8, step: 0.1, d: 1 },
       { k: 'faceDepth', label: '<abbr title="Ancho de la cara a lo ancho del gancho (el gancho mide 2 mm)">Ancho de cara</abbr> (mm)', min: 1.5, max: 3.6, step: 0.05, d: 2 },
@@ -37,7 +40,7 @@
       { k: 'gndCu', type: 'seg', opts: [[false, 'Tungsteno'], [true, 'Cobre']], label: 'Barra de tierra' }
     ] },
     { name: 'Avanzado (modelo)', id: 'gAdv', items: [
-      { k: 'fElec', label: 'Factor contacto electrodo', min: 1, max: 6, step: 0.1, d: 1 },
+      { k: 'fElec', label: 'Factor contacto electrodo', min: 2, max: 25, step: 0.5, d: 1 },
       { k: 'fClose', label: 'Factor contacto del cierre', min: 5, max: 60, step: 1, d: 0 },
       { k: 'zLoss', label: 'Longitud de pérdida 3D (mm)', min: 8, max: 60, step: 1, d: 0 },
       { k: 'Tburn', label: 'T de esmalte (°C)', min: 350, max: 650, step: 10, d: 0 },
@@ -50,7 +53,7 @@
     { grp: 'Referencia', name: '2 alambres · +10%', p: { nWires: 2 }, g: prog({ uf: 3.31, heat: 4.62, dl: 2.6, up: 220, weld: 405, down: 40 }) },
     { grp: 'Referencia', name: '3 alambres · actual', p: { nWires: 3 }, g: prog(T3) },
     { grp: 'Referencia', name: '3 alambres · −15%', p: { nWires: 3 }, g: prog({ uf: 2.68, heat: 3.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
-    { grp: 'Referencia', name: '3 alambres · corto y fuerte', p: { nWires: 3 }, g: prog({ uf: 3.36, heat: 4.25, dl: 2.6, up: 160, weld: 300, down: 40 }) },
+    { grp: 'Referencia', name: '3 alambres · corto y fuerte', p: { nWires: 3 }, g: prog({ uf: 3.52, heat: 4.45, dl: 2.6, up: 160, weld: 300, down: 40 }) },
     { grp: 'Varios pulsos', name: 'Precalentamiento + principal', p: { nWires: 3 }, g: prog({ uf: 2.8, heat: 2.8, dl: 2.8, up: 0, weld: 150, down: 0 }, T3, null, 30) },
     { grp: 'Varios pulsos', name: 'Principal + post-calentamiento', p: { nWires: 3 }, g: prog(T3, { uf: 2.5, heat: 2.5, dl: 2.5, up: 0, weld: 150, down: 0 }, null, 10) },
     { grp: 'Varios pulsos', name: 'Pulsación 3 × 150 ms', p: { nWires: 3 }, g: prog({ uf: 3.73, heat: 3.73, dl: 3.73, up: 0, weld: 150, down: 0, puls: 3, intv: 30 }) },
@@ -60,9 +63,9 @@
     { grp: 'Electrodo', name: 'Gastado + técnico sube corriente', p: { nWires: 3, wear: 0.4 }, g: prog({ uf: 3.15, heat: 4.4, dl: 2.6, up: 240, weld: 450, down: 40 }) },
     { grp: 'Electrodo', name: 'Electrodo corrido hacia el cierre', p: { nWires: 3, elecX: 1.5 }, g: prog(T3) },
     { grp: 'Electrodo', name: 'Electrodo corrido hacia el doblez', p: { nWires: 3, elecX: -1.5 }, g: prog(T3) },
-    { grp: 'Electrodo', name: 'Cara angosta (misma corriente)', p: { nWires: 3, faceDepth: 1.75 }, g: prog(T3) },
-    { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo plano', p: { nWires: 2, awg: 14 }, g: prog({ uf: 3.4, heat: 4.3, dl: 2.6, up: 240, weld: 450, down: 40 }) },
-    { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo escalonado', p: { nWires: 2, awg: 14, elecType: 'step', stepLen: 2.0 }, g: prog({ uf: 4.9, heat: 6.2, dl: 3.0, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Electrodo', name: 'Cara angosta (−10% de corriente)', p: { nWires: 3, faceDepth: 1.75 }, g: prog({ uf: 2.85, heat: 3.6, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo plano', p: { nWires: 2, awg: 14 }, g: prog({ uf: 3.5, heat: 4.45, dl: 2.6, up: 240, weld: 450, down: 40 }) },
+    { grp: 'Calibre grueso', name: '14 AWG · 2 alambres · electrodo escalonado', p: { nWires: 2, awg: 14, elecType: 'step', stepLen: 2.0 }, g: prog({ uf: 3.55, heat: 4.5, dl: 2.6, up: 240, weld: 450, down: 40 }) },
     { grp: 'Control', name: 'Modo PWR', p: { nWires: 3 }, g: prog(Object.assign({ ctrl: 'PWR' }, T3)) }
   ];
 
@@ -140,7 +143,7 @@
   function groupSummaries() {
     var t = $('gTermSum'), e = $('gElecSum');
     if (t) t.textContent = P.nWires + ' × ' + P.awg + ' AWG · ' + (+P.thick).toFixed(2) + ' mm · gancho ' + (+P.hookLen).toFixed(1);
-    if (e) e.textContent = (P.elecType === 'step' ? 'escalonado · ' : '') + (P.elecX ? (P.elecX > 0 ? '+' : '') + (+P.elecX).toFixed(2) + ' mm · ' : '') + (+P.faceW).toFixed(1) + '×' + (+P.faceDepth).toFixed(2) + (P.wear > 0 ? ' · cav ' + (+P.wear).toFixed(2) : '');
+    if (e) e.textContent = 'Ø' + (+P.elecD).toFixed(1) + ' · ' + (P.elecType === 'step' ? 'escalonado · ' : '') + (P.elecX ? (P.elecX > 0 ? '+' : '') + (+P.elecX).toFixed(2) + ' mm · ' : '') + (+P.faceW).toFixed(1) + '×' + (+P.faceDepth).toFixed(2) + (P.wear > 0 ? ' · cav ' + (+P.wear).toFixed(2) : '');
   }
   function sync() {
     Object.keys(inputs).forEach(function (k) {
@@ -158,7 +161,7 @@
     calibBox(); groupSummaries();
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
-  function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60 && P.elecType === 'flat'; }
+  function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60 && P.elecType === 'flat' && P.elecD === 6 && P.bossH === 1.5 && P.elecLen === 15; }
   var geoTimer = null;
   function geoPreview(k) {
     if (GEO_KEYS.concat(['wear', 'gndCu']).indexOf(k) < 0) return;

@@ -301,7 +301,7 @@
   <h3 style="margin-top:26px">Electrodo escalonado (calibres gruesos)</h3>
   <div class="grid2">
     <div class="card"><p>Con alambre grueso, la punta del gancho queda muy abajo respecto a la parte que pasa sobre los alambres (la altura es el diámetro del alambre). Un electrodo plano solo pisa los alambres y la punta queda apoyada sin presión. El <b>escalonado</b> tiene una segunda cara más baja que pisa la punta contra el cuerpo, de modo que el gancho también queda sujeto por su punta.</p>
-    <p>En el simulador: menú <i>Electrodo y barra → Tipo de electrodo</i>, o los casos de <i>Calibre grueso</i>. En el modelo, la corriente se reparte entre las dos caras. El escalonado necesita bastante más consigna (≈ 6.2 kA contra ≈ 4.3 kA con 14 AWG y 2 alambres). Su ganancia es mecánica: la punta queda presionada contra el cuerpo durante la soldadura. En el modelo la punta solo llega a unirse cerca de quemar. Este caso no está calibrado: úsalo para entender, no para fijar parámetros.</p></div>
+    <p>En el simulador: menú <i>Electrodo y barra → Tipo de electrodo</i>, o los casos de <i>Calibre grueso</i>. En el modelo, la corriente se reparte entre las dos caras. En el modelo, el escalonado pide una consigna parecida a la del plano (≈ 4.5 kA con 14 AWG y 2 alambres). La punta apoyada solo llega a ~400 °C y no se une. Su ganancia es mecánica: la punta queda presionada contra el cuerpo durante la soldadura. Este caso no está calibrado: úsalo para entender, no para fijar parámetros.</p></div>
     <div class="tbl-wrap card"><table>
       <thead><tr><th>Punto a cuidar</th><th>Por qué</th></tr></thead>
       <tbody>
@@ -461,6 +461,7 @@
     <div class="card"><h3>Supuestos y límites</h3>
       <ul style="margin:0;padding-left:18px">
         <li>Corte 2D: la profundidad (ancho del gancho) se toma uniforme. Los flancos que toca un electrodo gastado se representan con un factor de área en la punta.</li>
+        <li>El electrodo es un cilindro de tungsteno (Ø 6 mm por defecto) con la cara (y el escalón, si aplica) maquinada en la punta. El tramo restante hasta el portaelectrodo enfriado por agua se representa como una resistencia térmica (15 mm de tungsteno por defecto). Con un cilindro grueso, la mayor parte del calor nace en el contacto electrodo-gancho y en la punta maquinada, no en el cuerpo del electrodo.</li>
         <li>Contactos (electrodo-gancho, punta apoyada, esmalte quemado) como capas de una celda con resistividad multiplicada. Esos factores están ajustados, no medidos.</li>
         <li>El esmalte es aislante hasta ~480 °C y se retira progresivamente; las uniones avanzan por encima de ~700 °C. Modelo cinético simple.</li>
         <li>El gancho es una tira de espesor uniforme: pasa plana sobre los alambres, baja con un ángulo (60° por defecto) dejando un hueco de aire debajo y su punta se apoya sobre el cuerpo. Se conserva el largo desarrollado: si el gancho no alcanza el cuerpo, el resultado es <b>ABIERTA</b>.</li>

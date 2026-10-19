@@ -71,28 +71,36 @@
         else if (d <= ro + 0.5 * dx && mat[j * NX + i] === MAT.AIR) mat[j * NX + i] = MAT.ENAMEL;
       }
     }
-    // electrodo centrado sobre la fila de alambres (más el corrimiento)
-    var xEc = (xW0 + xW1) / 2 + (p.elecX || 0) * mm, half = p.faceW * mm / 2;
+    // Electrodo: cilindro de diámetro elecD con rasgos maquinados en la punta (cara y, si aplica, escalón).
+    // En el corte 2D cada celda de tungsteno lleva un factor de profundidad af = ancho real / ancho del gancho.
+    var af = new Float64Array(NX * NY); af.fill(1);
+    var hwm = p.hookW * mm, R = (p.elecD || 6) * mm / 2, bossH = Math.max(dx, (p.bossH || 1.5) * mm);
+    var xEc = (xW0 + xW1) / 2 + (p.elecX || 0) * mm, half = Math.min(p.faceW * mm / 2, R);
     var xE0 = Math.max(0, xEc - half), xE1 = Math.min(domW, xEc + half);
+    var yCyl = yT1 + dx + bossH, afBoss = (p.faceDepth || hwm / mm) * mm / hwm;
     fill(xE0, xE1, yT1, yT1 + dx, MAT.C_EL);
-    fill(xE0, xE1, yT1 + dx, domH, MAT.W_EL);
-    fill(xE0, xE1, yT1 + dx, yT1 + dx + p.tipLen * mm, MAT.W_TIP);
+    fill(xE0, xE1, yT1 + dx, yCyl, MAT.W_TIP);
+    for (var jy = Math.floor(yCyl / dx + 1e-9); jy < NY; jy++) for (var ix = 0; ix < NX; ix++) {
+      var xr = (ix + 0.5) * dx - xEc;
+      if (Math.abs(xr) <= R) { var cc = jy * NX + ix; mat[cc] = MAT.W_EL; af[cc] = Math.max(dx, 2 * Math.sqrt(R * R - xr * xr)) / hwm; }
+    }
+    var added = [];
+    var fillAir = function (x0, x1, y0, y1, m) {
+      for (var j = Math.max(0, Math.floor(y0 / dx + 1e-9)); j < Math.min(NY, Math.ceil(y1 / dx - 1e-9)); j++)
+        for (var i = Math.max(0, Math.floor(x0 / dx + 1e-9)); i < Math.min(NX, Math.ceil(x1 / dx - 1e-9)); i++)
+          if (mat[j * NX + i] === MAT.AIR) { mat[j * NX + i] = m; added.push(j * NX + i); }
+    };
     // electrodo escalonado: una cara pisa los alambres y otra, más baja, pisa la punta apoyada
     var step = null;
     if (p.elecType === 'step' && reaches && flat > 0) {
       var xB0 = xS + (gap + tc - t) / tanT + dx + (p.elecX || 0) * mm;
-      var xB1 = Math.min(xF1, xB0 + (p.stepLen || 2) * mm), yLow = yB1 + t;
+      var xB1 = Math.min(xF1, xB0 + (p.stepLen || 2) * mm, xEc + R), yLow = yB1 + t;
       if (xB1 > xB0 + 2 * dx) {
         step = { x0: xB0, x1: xB1, y0: yLow, h: yT1 - yLow };
-        var added = [];
-        var fillAir = function (x0, x1, y0, y1, m) {
-          for (var j = Math.max(0, Math.floor(y0 / dx + 1e-9)); j < Math.min(NY, Math.ceil(y1 / dx - 1e-9)); j++)
-            for (var i = Math.max(0, Math.floor(x0 / dx + 1e-9)); i < Math.min(NX, Math.ceil(x1 / dx - 1e-9)); i++)
-              if (mat[j * NX + i] === MAT.AIR) { mat[j * NX + i] = m; added.push(j * NX + i); }
-        };
-        fillAir(Math.min(xE0, xB0), Math.max(xE1, xB1), yT1 + dx, domH, MAT.W_EL);     // cuerpo común
-        fillAir(xB0, xB1, yLow + dx, yT1 + dx, MAT.W_TIP);                             // escalón
+        fillAir(xB0, xB1, yLow + dx, yCyl, MAT.W_TIP);                                 // escalón maquinado
         fillAir(xB0, xB1, yLow, yLow + dx, MAT.C_EL);                                  // cara baja
+        // entre la cara principal y el escalón el material también es parte del rasgo maquinado
+        fillAir(xE1, xB0, yT1 + dx, yCyl, MAT.W_TIP);
         // toda celda de tungsteno que toque cobre lo hace a través de una capa de contacto
         added.forEach(function (c) {
           var m = mat[c]; if (m !== MAT.W_EL && m !== MAT.W_TIP) return;
@@ -101,14 +109,15 @@
         });
       }
     }
+    for (var ca = 0; ca < NX * NY; ca++) if (mat[ca] === MAT.W_TIP) af[ca] = afBoss;
     for (var i2 = 0; i2 < NX; i2++) {
       var jg = Math.round(yG1 / dx) - 1;
       if (mat[jg * NX + i2] === MAT.GROUND && mat[(jg + 1) * NX + i2] === MAT.CU_TERM) mat[jg * NX + i2] = MAT.C_GND;
     }
     var xC0 = xF0, xC1 = xF0 + Math.max(closeLen, dx);
     return {
-      NX: NX, NY: NY, dx: dx, mat: mat,
-      info: { xL: xL, xT1: xT1, xS: xS, xF0: xF0, xF1: xF1, theta: th, reaches: reaches, slopeLen: slopeLen, flat: flat, closeLen: closeLen, xW0: xW0, xW1: xW1, yWc: yWc, ro: ro, xC0: xC0, xC1: xC1, yB1: yB1, yT0: yT0, yT1: yT1, xE0: xE0, xE1: xE1, step: step, free: free, closeW: closeLen }
+      NX: NX, NY: NY, dx: dx, mat: mat, af: af,
+      info: { xEc: xEc, R: R, yCyl: yCyl, bossH: bossH, xL: xL, xT1: xT1, xS: xS, xF0: xF0, xF1: xF1, theta: th, reaches: reaches, slopeLen: slopeLen, flat: flat, closeLen: closeLen, xW0: xW0, xW1: xW1, yWc: yWc, ro: ro, xC0: xC0, xC1: xC1, yB1: yB1, yT0: yT0, yT1: yT1, xE0: xE0, xE1: xE1, step: step, free: free, closeW: closeLen }
     };
   }
 
@@ -194,7 +203,7 @@
   }
 
   function run(p, onProgress) {
-    var G = buildGeometry(p), NX = G.NX, NY = G.NY, N = NX * NY, dx = G.dx, mat = G.mat;
+    var G = buildGeometry(p), NX = G.NX, NY = G.NY, N = NX * NY, dx = G.dx, mat = G.mat, afG = G.af;
     var depth = p.hookW * 1e-3, iCal = p.iCal || 1;
     var T = new Float64Array(N), phi = new Float64Array(N), sig = new Float64Array(N), k = new Float64Array(N), rc = new Float64Array(N), q = new Float64Array(N);
     var burn = new Float64Array(N), bond = new Float64Array(N), melt = new Float64Array(N);
@@ -223,6 +232,7 @@
     })();
     act = Int32Array.from(act); enam = Int32Array.from(enam); clos = Int32Array.from(clos); cuc = Int32Array.from(cuc);
     var nAct = act.length;
+    var LREST = (p.elecLen != null ? p.elecLen : 15) * 1e-3; // tungsteno restante hasta el portaelectrodo enfriado por agua
     var TBURN = p.Tburn, TBOND = p.Tbond, RREF = p.Rref * 1e-3, REXT = p.Rext * 1e-3, TMELT = 1083, LCU = 1.84e9;
     var hw = p.hookW, cav = p.wear, fd = p.faceDepth;
     var contactW = fd > hw ? Math.min(fd, hw + 2 * cav) : fd;
@@ -235,8 +245,7 @@
       for (var a = 0; a < nAct; a++) {
         var nn = act[a], m = mat[nn], t = T[nn];
         switch (m) {
-          case MAT.W_EL: sig[nn] = 1 / rhoW(t); k[nn] = 150; rc[nn] = 2.59e6; break;
-          case MAT.W_TIP: sig[nn] = AfC / rhoW(t); k[nn] = 150 * AfC; rc[nn] = 2.59e6 * AfC; break;
+          case MAT.W_EL: case MAT.W_TIP: { var a1 = afG[nn]; sig[nn] = a1 / rhoW(t); k[nn] = 150 * a1; rc[nn] = 2.59e6 * a1; break; }
           case MAT.GROUND: if (p.gndCu) { sig[nn] = 1 / rhoCu(t); k[nn] = 390; rc[nn] = 3.45e6; } else { sig[nn] = 1 / rhoW(t); k[nn] = 150; rc[nn] = 2.59e6; } break;
           case MAT.CU_TERM: case MAT.CU_WIRE: sig[nn] = 1 / rhoCu(t); k[nn] = 390; rc[nn] = 3.45e6; break;
           case MAT.ENAMEL: {
@@ -263,7 +272,7 @@
         gD[c] = gW[c] + gE[c] + gS[c] + gN[c];
         kW[c] = ii > 0 ? hmean(k[c], k[c - 1]) : 0; kE[c] = ii < NX - 1 ? hmean(k[c], k[c + 1]) : 0;
         kS[c] = jj > 0 ? hmean(k[c], k[c - NX]) : 0; kN[c] = jj < NY - 1 ? hmean(k[c], k[c + NX]) : 0;
-        kB[c] = (jj === 0 ? 2 * k[c] : 0) + (jj === NY - 1 ? 2 * k[c] : 0);
+        kB[c] = (jj === 0 ? 2 * k[c] : 0) + (jj === NY - 1 ? k[c] * dx / (dx / 2 + LREST) : 0);
       }
     }
     var fixed = new Uint8Array(N);
@@ -405,8 +414,8 @@
   var DEFAULTS = {
     dx: 0.125e-3, domainW: 10.5e-3, domainH: 8e-3, dt: 2.5e-5, elecEvery: 0.001, frameEvery: 0.01,
     nWires: 3, wireDiam: 1.15, wireCore: 0.55, enamel: 0.075, thick: 1.0, hookW: 2.0, hookLen: 8.5, innerR: 0.65, closeFrac: 0.35,
-    faceW: 4.5, elecX: 0, elecType: 'flat', stepLen: 2.0, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
-    fEnamel: 8, fClose: 25, fElec: 2.5, Rext: 0.16, Rref: 0.28, Imax: 9.9, Vmax: 2.83, wear: 0, faceDepth: 3.0, tipLen: 0.75, forceLoss: 0.8, zLoss: 14, gndCu: false, iCal: 1,
+    faceW: 4.5, elecX: 0, elecType: 'flat', stepLen: 2.0, elecD: 6.0, bossH: 1.5, elecLen: 15, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
+    fEnamel: 8, fClose: 25, fElec: 11.5, Rext: 0.16, Rref: 0.28, Imax: 9.9, Vmax: 2.83, wear: 0, faceDepth: 3.0, tipLen: 0.75, forceLoss: 0.8, zLoss: 14, gndCu: false, iCal: 1,
     mode: 'SCD', pre: false, preT: 150, preI: 2.8, cool: 30, up: 240, weld: 450, down: 40, uf: 3.15, heat: 4.0, dl: 2.6, hold: 300
   };
 

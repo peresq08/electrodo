@@ -73,22 +73,21 @@ function build(p) {
     group.add(cyl(x, yWc, ro, 9, MATS.enamel));
     group.add(cyl(x, yWc, rc, 9.12, MATS.cuWire));
   }
-  // electrodo: cara faceW (a lo largo) × faceDepth (a lo ancho); con cavidad, los flancos abrazan el gancho
-  const xEc = (xW0 + inf.xW1 * k) / 2 + (P.elecX || 0), hx = P.faceW / 2, fd = P.faceDepth, cav = Math.min(P.wear || 0, 0.9);
-  const yE = yT1, H = 3.2;
-  group.add(box(xEc - hx, xEc + hx, yE, yE + H, -fd / 2, fd / 2, MATS.w));
-  // vástago
-  group.add(box(xEc - hx * 0.8, xEc + hx * 0.8, yE + H, yE + H + 2.5, -Math.max(fd, 2.4) / 2 - 0.4, Math.max(fd, 2.4) / 2 + 0.4, MATS.w));
+  // electrodo: cilindro de tungsteno con la punta maquinada (cara faceW × faceDepth y, si aplica, escalón)
+  const xEc = inf.xEc * k, R = inf.R * k, yC = inf.yCyl * k, hx = Math.min(P.faceW / 2, R), fd = Math.min(P.faceDepth, 2 * R), cav = Math.min(P.wear || 0, 0.9);
+  const yE = yT1, Hc = 6;
+  const cylM = new THREE.Mesh(new THREE.CylinderGeometry(R, R, Hc, 40), MATS.w);
+  cylM.position.set(xEc, yC + Hc / 2, 0); group.add(cylM);
+  group.add(box(xEc - hx, xEc + hx, yE, yC, -fd / 2, fd / 2, MATS.w));            // cara maquinada sobre los alambres
   if (cav > 0 && fd > hw) {
     const zIn = Math.min(fd / 2, zH + 0.02);
     group.add(box(xEc - hx, xEc + hx, yE - cav, yE, zIn, fd / 2, MATS.w));
     group.add(box(xEc - hx, xEc + hx, yE - cav, yE, -fd / 2, -zIn, MATS.w));
   }
-  // escalón del electrodo escalonado
   if (inf.step) {
     const st = inf.step, x0 = st.x0 * k, x1 = st.x1 * k, y0 = st.y0 * k;
-    group.add(box(Math.min(xEc - hx, x0), Math.max(xEc + hx, x1), yE, yE + H, -fd / 2, fd / 2, MATS.w));
-    group.add(box(x0, x1, y0, yE, -fd / 2, fd / 2, MATS.w));
+    group.add(box(x0, x1, y0, yC, -fd / 2, fd / 2, MATS.w));                        // escalón (cara baja)
+    if (x0 > xEc + hx) group.add(box(xEc + hx, x0, yE + 0.12, yC, -fd / 2, fd / 2, MATS.w));
   }
   // centrar
   const c = new THREE.Vector3((xL + xT1) / 2, yT1 / 2 + 1, 0);
@@ -130,7 +129,7 @@ window.Geo3D = {
   },
   update(p) {
     if (!renderer) init();
-    const key = JSON.stringify([p.nWires, p.wireCore, p.wireDiam, p.thick, p.hookLen, p.elecX, p.faceW, p.faceDepth, p.wear, p.gndCu, p.closeAngle, p.elecType, p.stepLen]);
+    const key = JSON.stringify([p.nWires, p.wireCore, p.wireDiam, p.thick, p.hookLen, p.elecX, p.faceW, p.faceDepth, p.wear, p.gndCu, p.closeAngle, p.elecType, p.stepLen, p.elecD, p.bossH]);
     if (key === lastKey) return; lastKey = key;
     build(p);
   },
