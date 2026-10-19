@@ -7,7 +7,23 @@
 
   // ---------- estado ----------
   var AWG = { 14: 1.628, 15: 1.450, 16: 1.291, 17: 1.150, 18: 1.024, 19: 0.912, 20: 0.812, 21: 0.723, 22: 0.644 };
-  var P = Object.assign({}, S.DEFAULTS, { nWires: 3, awg: 17 });
+  var P = Object.assign({}, S.DEFAULTS, { nWires: 3, awg: 17, ins: 'REF' });
+  // Tipos de aislamiento de la planta. Espesor por lado y temperatura de retiro: SUPUESTOS editables (confirmar con la ficha del alambre).
+  var INSUL = {
+    REF: { n: 'Referencia del modelo', um: 30, T: 480, note: 'Doble capa (~30 µm por lado), retiro ~480 °C. Es con lo que está calibrado el modelo.' },
+    HNP: { n: 'HNP', um: 30, T: 420, note: 'Supuesto: H = doble capa; NP = capa de nylon sobre poliuretano (soldable). Retiro más bajo.' },
+    SNP: { n: 'SNP', um: 18, T: 420, note: 'Supuesto: S = capa sencilla; NP = nylon sobre poliuretano (soldable).' },
+    HAIP: { n: 'HAIP', um: 30, T: 480, note: 'Supuesto: H = doble capa; AIP = poliéster(imida) con capa de amida-imida (clase 200).' },
+    SAIP: { n: 'SAIP', um: 18, T: 480, note: 'Supuesto: S = capa sencilla; AIP = poliéster(imida) con amida-imida.' },
+    BSAIP: { n: 'BSAIP', um: 26, T: 480, note: 'Supuesto: B = capa adherente (bondable) sobre SAIP; la capa adherente suma espesor.' },
+    SP: { n: 'SP', um: 18, T: 460, note: 'Supuesto: capa sencilla de poliéster. Confirmar química.' },
+    'SP-ST': { n: 'SP-ST', um: 18, T: 460, note: 'Supuesto: variante de SP. Confirmar qué significa "ST".' },
+    HPPI: { n: 'HPPI', um: 30, T: 540, note: 'Supuesto: H = doble capa; PPI con poliimida (clase 220+), retiro más alto.' }
+  };
+  var INS_KEY = 'electrodo-insul-v1', insOver = {};
+  try { insOver = JSON.parse(localStorage.getItem(INS_KEY) || '{}') || {}; } catch (e) { insOver = {}; }
+  function insOf(code) { return Object.assign({}, INSUL[code] || INSUL.REF, insOver[code] || {}); }
+  function saveIns() { try { localStorage.setItem(INS_KEY, JSON.stringify(insOver)); } catch (e) {} }
   var GEO0 = { awg: 17, thick: 1.0, hookLen: 8.5, elecX: 0, faceW: 4.5 };
   var GEO_KEYS = ['nWires', 'awg', 'thick', 'hookLen', 'closeAngle', 'elecType', 'stepLen', 'elecD', 'bossH', 'elecX', 'faceW', 'faceDepth'];
   var PROG = PU.defaultProgram();
@@ -24,6 +40,9 @@
       { k: 'awg', type: 'select', opts: AWG_OPTS, label: 'Calibre del alambre' },
       { k: 'thick', label: '<abbr title="Espesor del material de la terminal">Espesor</abbr> (mm)', min: 0.5, max: 1.5, step: 0.05, d: 2 },
       { k: 'hookLen', label: '<abbr title="Largo desarrollado del gancho; define cuánto gancho queda libre después de los alambres">Largo de gancho</abbr> (mm)', min: 5, max: 12, step: 0.1, d: 1 },
+      { k: 'ins', type: 'select', opts: Object.keys(INSUL).map(function (c) { return [c, INSUL[c].n]; }), label: 'Aislamiento del alambre' },
+      { k: 'enamelUm', label: '<abbr title="Espesor de esmalte por lado (radial). Cambia el tiempo para retirarlo y su resistencia térmica">Esmalte por lado</abbr> (µm)', min: 10, max: 60, step: 1, d: 0 },
+      { k: 'Tburn', label: '<abbr title="Temperatura a la que el esmalte se descompone y se retira">T de retiro</abbr> (°C)', min: 350, max: 650, step: 5, d: 0 },
       { k: 'closeAngle', label: '<abbr title="Ángulo con el que la tira baja del último alambre hacia el cuerpo">Ángulo de bajada</abbr> (°)', min: 30, max: 85, step: 1, d: 0 }
     ] },
     { name: 'Electrodo y barra', id: 'gElec', geo: true, items: [
@@ -43,7 +62,6 @@
       { k: 'fElec', label: 'Factor contacto electrodo', min: 2, max: 25, step: 0.5, d: 1 },
       { k: 'fClose', label: 'Factor contacto del cierre', min: 5, max: 60, step: 1, d: 0 },
       { k: 'zLoss', label: 'Longitud de pérdida 3D (mm)', min: 8, max: 60, step: 1, d: 0 },
-      { k: 'Tburn', label: 'T de esmalte (°C)', min: 350, max: 650, step: 10, d: 0 },
       { k: 'Tbond', label: 'T de unión (°C)', min: 550, max: 950, step: 10, d: 0 },
       { k: 'Rref', label: 'R ref. PWR/VLT (mΩ)', min: 0.18, max: 0.4, step: 0.005, d: 3 }
     ] }
@@ -93,11 +111,21 @@
     groups.forEach(function (g) { g.items.forEach(function (it) { inputs[it.k] = it; }); });
     pulseEd = PU.create($('simPulses'), PROG, function () { markPreset(-1); sync(); });
     box.querySelectorAll('input[type=range][data-k]').forEach(function (inp) {
-      inp.addEventListener('input', function () { P[inp.dataset.k] = parseFloat(inp.value); sync(); markPreset(-1); geoPreview(inp.dataset.k); });
+      inp.addEventListener('input', function () {
+        var k = inp.dataset.k; P[k] = parseFloat(inp.value);
+        if (k === 'enamelUm' || k === 'Tburn') { insOver[P.ins] = Object.assign({}, insOver[P.ins] || {}, k === 'enamelUm' ? { um: P[k] } : { T: P[k] }); saveIns(); }
+        sync(); markPreset(-1); geoPreview(k);
+      });
     });
     box.querySelectorAll('select[data-k]').forEach(function (sel) {
-      sel.addEventListener('change', function () { P[sel.dataset.k] = +sel.value; sync(); markPreset(-1); geoPreview(sel.dataset.k); });
+      sel.addEventListener('change', function () {
+        var k = sel.dataset.k;
+        if (k === 'ins') { P.ins = sel.value; var d = insOf(P.ins); P.enamelUm = d.um; P.Tburn = d.T; }
+        else P[k] = +sel.value;
+        sync(); markPreset(-1); geoPreview(k);
+      });
     });
+    box.querySelector('#in_enamelUm').closest('.row').insertAdjacentHTML('beforebegin', '<div class="note mini" id="insNote"></div>');
     box.querySelectorAll('.seg[data-k]').forEach(function (sg) {
       sg.addEventListener('click', function (e) {
         var b = e.target.closest('button'); if (!b) return;
@@ -142,7 +170,7 @@
   }
   function groupSummaries() {
     var t = $('gTermSum'), e = $('gElecSum');
-    if (t) t.textContent = P.nWires + ' × ' + P.awg + ' AWG · ' + (+P.thick).toFixed(2) + ' mm · gancho ' + (+P.hookLen).toFixed(1);
+    if (t) t.textContent = P.nWires + ' × ' + P.awg + ' AWG ' + (P.ins !== 'REF' ? P.ins + ' ' : '') + '· ' + (+P.thick).toFixed(2) + ' mm · gancho ' + (+P.hookLen).toFixed(1);
     if (e) e.textContent = 'Ø' + (+P.elecD).toFixed(1) + ' · ' + (P.elecType === 'step' ? 'escalonado · ' : '') + (P.elecX ? (P.elecX > 0 ? '+' : '') + (+P.elecX).toFixed(2) + ' mm · ' : '') + (+P.faceW).toFixed(1) + '×' + (+P.faceDepth).toFixed(2) + (P.wear > 0 ? ' · cav ' + (+P.wear).toFixed(2) : '');
   }
   function sync() {
@@ -159,6 +187,7 @@
     });
     if (pulseEd) pulseEd.render();
     calibBox(); groupSummaries();
+    var nb = $('insNote'); if (nb) { var d = insOf(P.ins), ed = insOver[P.ins]; nb.innerHTML = d.note + (ed ? ' <b>Valores editados por ti.</b> <a href="#" id="insReset">restablecer</a>' : ''); var rs = $('insReset'); if (rs) rs.onclick = function (e) { e.preventDefault(); delete insOver[P.ins]; saveIns(); var d0 = insOf(P.ins); P.enamelUm = d0.um; P.Tburn = d0.T; sync(); }; }
     $('runBtn').disabled = S.checkProgram(PROG).length > 0 || busy;
   }
   function isDefaultGeo() { return (P.nWires === 2 || P.nWires === 3) && P.awg === 17 && P.thick === 1.0 && P.hookLen === 8.5 && P.closeAngle === 60 && P.elecType === 'flat' && P.elecD === 6 && P.bossH === 1.5 && P.elecLen === 15; }
@@ -359,7 +388,7 @@
     var s = cur.summary, r = ref && ref.summary, v = cur.verdict, cp = cur.params;
     var vd = $('verdict'); vd.className = 'verdict ' + v.cls;
     vd.innerHTML = '<div class="big">' + v.code + '</div><div><b>' + v.text + '</b><div class="muted" style="margin-top:4px">' +
-      cp.nWires + ' alambres' + (cp.awg !== 17 ? ' ' + cp.awg + ' AWG' : '') + (cp.thick !== 1 ? ' · terminal ' + cp.thick.toFixed(2) + ' mm' : '') + (cp.hookLen !== 8.5 ? ' · gancho ' + cp.hookLen.toFixed(1) + ' mm' : '') + (cp.elecType === 'step' ? ' · electrodo escalonado' : '') + (cp.elecX ? ' · electrodo corrido ' + (cp.elecX > 0 ? '+' : '') + cp.elecX.toFixed(2) + ' mm' : '') + ' · ' + PU.describe(cp) + (cp.wear > 0 ? ' · cavidad ' + cp.wear.toFixed(2) + ' mm' : '') + (cp.iCal !== 1 ? ' · calibrado ×' + cp.iCal.toFixed(3) : '') + '</div></div>';
+      cp.nWires + ' alambres' + (cp.awg !== 17 ? ' ' + cp.awg + ' AWG' : '') + (cp.ins && cp.ins !== 'REF' ? ' ' + cp.ins : '') + (cp.thick !== 1 ? ' · terminal ' + cp.thick.toFixed(2) + ' mm' : '') + (cp.hookLen !== 8.5 ? ' · gancho ' + cp.hookLen.toFixed(1) + ' mm' : '') + (cp.elecType === 'step' ? ' · electrodo escalonado' : '') + (cp.elecX ? ' · electrodo corrido ' + (cp.elecX > 0 ? '+' : '') + cp.elecX.toFixed(2) + ' mm' : '') + ' · ' + PU.describe(cp) + (cp.wear > 0 ? ' · cavidad ' + cp.wear.toFixed(2) + ' mm' : '') + (cp.iCal !== 1 ? ' · calibrado ×' + cp.iCal.toFixed(3) : '') + '</div></div>';
     var maxPulse = Math.max.apply(null, cur.series.map(function (o) { return o.pulse; }));
     var tEnd = s.tWeldEnd;
     $('metrics').innerHTML =

@@ -232,6 +232,7 @@
     })();
     act = Int32Array.from(act); enam = Int32Array.from(enam); clos = Int32Array.from(clos); cuc = Int32Array.from(cuc);
     var nAct = act.length;
+    var EUM = p.enamelUm || 30, kEn = 0.6 * 30 / EUM, BURNT = p.burnTime * EUM / 30;
     var LREST = (p.elecLen != null ? p.elecLen : 15) * 1e-3; // tungsteno restante hasta el portaelectrodo enfriado por agua
     var TBURN = p.Tburn, TBOND = p.Tbond, RREF = p.Rref * 1e-3, REXT = p.Rext * 1e-3, TMELT = 1083, LCU = 1.84e9;
     var hw = p.hookW, cav = p.wear, fd = p.faceDepth;
@@ -252,7 +253,7 @@
             var b = burn[nn];
             var lr = Math.log(1e2) * (1 - b) + Math.log(rhoCu(t) * p.fEnamel) * b;
             sig[nn] = 1 / Math.exp(lr);
-            k[nn] = 0.6 + (390 - 0.6) * b * (0.3 + 0.7 * bond[nn]);
+            k[nn] = kEn + (390 - kEn) * b * (0.3 + 0.7 * bond[nn]);
             rc[nn] = 2.0e6 * (1 - b) + 3.45e6 * b; break;
           }
           case MAT.TIPC:
@@ -373,7 +374,7 @@
       }
       for (var b2 = 0; b2 < enam.length; b2++) {
         var c2 = enam[b2];
-        if (T[c2] > TBURN && burn[c2] < 1) burn[c2] = Math.min(1, burn[c2] + dt / p.burnTime * Math.min(3, (T[c2] - TBURN) / 100 + 0.3));
+        if (T[c2] > TBURN && burn[c2] < 1) burn[c2] = Math.min(1, burn[c2] + dt / BURNT * Math.min(3, (T[c2] - TBURN) / 100 + 0.3));
         if (burn[c2] >= 1 && T[c2] > TBOND && bond[c2] < 1) bond[c2] = Math.min(1, bond[c2] + dt / p.bondTime * Math.min(3, (T[c2] - TBOND) / 100 + 0.3));
       }
       for (var b5 = 0; b5 < tipc.length; b5++) { var c5 = tipc[b5]; if (T[c5] > TBOND && bond[c5] < 1) bond[c5] = Math.min(1, bond[c5] + dt / p.bondTime * Math.min(3, (T[c5] - TBOND) / 100 + 0.3)); }
@@ -414,7 +415,7 @@
   var DEFAULTS = {
     dx: 0.125e-3, domainW: 10.5e-3, domainH: 8e-3, dt: 2.5e-5, elecEvery: 0.001, frameEvery: 0.01,
     nWires: 3, wireDiam: 1.15, wireCore: 0.55, enamel: 0.075, thick: 1.0, hookW: 2.0, hookLen: 8.5, innerR: 0.65, closeFrac: 0.35,
-    faceW: 4.5, elecX: 0, elecType: 'flat', stepLen: 2.0, elecD: 6.0, bossH: 1.5, elecLen: 15, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
+    faceW: 4.5, elecX: 0, elecType: 'flat', stepLen: 2.0, elecD: 6.0, bossH: 1.5, elecLen: 15, enamelUm: 30, closeAngle: 60, closeLen: 1.0, T0: 25, Tel0: 150, Twater: 30, Tburn: 480, Tbond: 700, burnTime: 0.025, bondTime: 0.04,
     fEnamel: 8, fClose: 25, fElec: 11.5, Rext: 0.16, Rref: 0.28, Imax: 9.9, Vmax: 2.83, wear: 0, faceDepth: 3.0, tipLen: 0.75, forceLoss: 0.8, zLoss: 14, gndCu: false, iCal: 1,
     mode: 'SCD', pre: false, preT: 150, preI: 2.8, cool: 30, up: 240, weld: 450, down: 40, uf: 3.15, heat: 4.0, dl: 2.6, hold: 300
   };

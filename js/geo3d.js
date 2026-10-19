@@ -75,7 +75,7 @@ function build(p) {
   }
   // electrodo: cilindro de tungsteno con la punta maquinada (cara faceW × faceDepth y, si aplica, escalón)
   const xEc = inf.xEc * k, R = inf.R * k, yC = inf.yCyl * k, hx = Math.min(P.faceW / 2, R), fd = Math.min(P.faceDepth, 2 * R), cav = Math.min(P.wear || 0, 0.9);
-  const yE = yT1, Hc = 6;
+  const yE = yT1, Hc = 3.5;
   const cylM = new THREE.Mesh(new THREE.CylinderGeometry(R, R, Hc, 40), MATS.w);
   cylM.position.set(xEc, yC + Hc / 2, 0); group.add(cylM);
   group.add(box(xEc - hx, xEc + hx, yE, yC, -fd / 2, fd / 2, MATS.w));            // cara maquinada sobre los alambres
